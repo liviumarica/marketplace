@@ -1,7 +1,10 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  // Prisma's generated native library must be copied into Vercel functions.
+  outputFileTracingIncludes: {
+    "/*": ["./src/generated/prisma/*.node"],
+  },
 };
 
 export default nextConfig;

@@ -9,6 +9,14 @@
 import path from "node:path";
 import { PrismaClient } from "@/generated/prisma/client";
 
+// Turbopack relocates the generated client's directory. Point Prisma 6 at
+// the library included by outputFileTracingIncludes in each Vercel function.
+if (process.env.VERCEL && process.platform === "linux" && !process.env.PRISMA_QUERY_ENGINE_LIBRARY) {
+  process.env.PRISMA_QUERY_ENGINE_LIBRARY = path.join(
+    process.cwd(), "src/generated/prisma/libquery_engine-rhel-openssl-3.0.x.so.node",
+  );
+}
+
 /**
  * Resolve DATABASE_URL for the client.
  *
