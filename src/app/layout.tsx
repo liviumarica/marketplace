@@ -1,17 +1,30 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import type { Metadata, Viewport } from "next";
+import { Geist, Geist_Mono, Space_Grotesk } from "next/font/google";
 import "./globals.css";
 import { Navbar } from "@/components/Navbar";
+import { Footer } from "@/components/Footer";
+import { SmoothScroll } from "@/components/fx/SmoothScroll";
+import { CosmicBackground } from "@/components/fx/CosmicBackground";
+import { ScrollProgress } from "@/components/fx/ScrollProgress";
 import { getSessionUser } from "@/lib/auth";
 
+// Body copy font.
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
 });
 
+// Monospace font for prices, ids and technical labels.
 const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
+});
+
+// Display font for headlines — geometric and futuristic.
+const spaceGrotesk = Space_Grotesk({
+  variable: "--font-display",
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
 });
 
 export const metadata: Metadata = {
@@ -20,17 +33,30 @@ export const metadata: Metadata = {
     "Buy complete AI-built SaaS businesses or order a custom app built by AI-augmented developers. Payments split automatically via PayPal.",
 };
 
+// Dark browser chrome (mobile address bar etc.) to match the cosmic theme.
+export const viewport: Viewport = {
+  themeColor: "#05060f",
+  colorScheme: "dark",
+};
+
 /**
- * Root layout — renders the global navbar (session-aware) around every page.
+ * Root layout — the persistent "cosmic" shell around every page:
+ *   - animated aurora/star background + cursor spotlight,
+ *   - Lenis smooth scrolling and a scroll-progress bar,
+ *   - the session-aware floating navbar and the footer.
+ * Page content animates in/out via <PageTransition> inside each page.
  */
 export default async function RootLayout({ children }: LayoutProps<"/">) {
   const user = await getSessionUser();
   return (
     <html
       lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${geistSans.variable} ${geistMono.variable} ${spaceGrotesk.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col bg-slate-50 text-slate-900">
+      <body className="relative flex min-h-full flex-col overflow-x-hidden bg-void text-ink">
+        <SmoothScroll />
+        <ScrollProgress />
+        <CosmicBackground />
         <Navbar
           user={
             user
@@ -38,10 +64,9 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
               : null
           }
         />
-        <main className="flex-1">{children}</main>
-        <footer className="border-t border-slate-200 bg-white py-6 text-center text-xs text-slate-500">
-          AgentBay — PayPal AI Hackathon project · PayPal + AI · Sandbox payments
-        </footer>
+        {/* Top padding leaves room for the floating navbar. */}
+        <main className="flex-1 pt-24">{children}</main>
+        <Footer />
       </body>
     </html>
   );

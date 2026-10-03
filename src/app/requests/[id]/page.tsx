@@ -11,6 +11,8 @@ import { formatUsd } from "@/lib/money";
 import { env } from "@/lib/env";
 import { OfferForm } from "@/components/OfferForm";
 import { FundEscrowButton } from "@/components/FundEscrowButton";
+import { PageTransition } from "@/components/fx/PageTransition";
+import { Reveal } from "@/components/fx/Reveal";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -41,111 +43,139 @@ export default async function RequestDetailPage({ params }: PageProps) {
     !request.offers.some((o) => o.developerId === user.id && o.status === "PENDING");
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-10">
-      <div className="flex flex-wrap items-center gap-3">
-        <h1 className="text-2xl font-bold">{request.title}</h1>
-        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
-          {request.status.replace("_", " ")}
-        </span>
-      </div>
-      <p className="mt-1 text-sm text-slate-500">
-        by {request.buyer.name} · budget {formatUsd(request.budgetCents)} ·
-        deadline {request.deadlineDays} days
-      </p>
+    <PageTransition>
+      <div className="mx-auto max-w-6xl px-4 py-10">
+        <Link href="/requests" className="text-dim text-sm transition-colors hover:text-white">
+          ← All custom builds
+        </Link>
 
-      <div className="mt-6 grid gap-6 lg:grid-cols-3">
-        <div className="space-y-6 lg:col-span-2">
-          <section className="rounded-xl border border-slate-200 bg-white p-6">
-            <h2 className="font-semibold">Brief</h2>
-            <p className="mt-2 whitespace-pre-wrap text-sm text-slate-700">
-              {request.brief}
-            </p>
-          </section>
-
-          {request.refinedBrief && (
-            <section className="rounded-xl border border-indigo-200 bg-indigo-50/50 p-6">
-              <h2 className="font-semibold text-indigo-900">
-                AI-refined spec
-              </h2>
-              <p className="mt-2 whitespace-pre-wrap text-sm text-indigo-900">
-                {request.refinedBrief}
-              </p>
-            </section>
-          )}
-
-          {/* Offer form for developers */}
-          {canOffer && <OfferForm requestId={request.id} />}
-          {!user && (
-            <Link
-              href="/login"
-              className="block rounded-xl border border-slate-200 bg-white p-6 text-center text-sm text-indigo-600"
-            >
-              Log in to make an offer
-            </Link>
-          )}
-        </div>
-
-        {/* Offers column */}
-        <aside>
-          <h2 className="font-semibold">
-            Offers ({request.offers.length})
-          </h2>
-          <div className="mt-3 space-y-3">
-            {request.offers.length === 0 && (
-              <p className="rounded-lg border border-dashed border-slate-300 bg-white p-4 text-sm text-slate-500">
-                No offers yet.
-              </p>
-            )}
-            {request.offers.map((o) => (
-              <div
-                key={o.id}
-                className="rounded-xl border border-slate-200 bg-white p-4"
-              >
-                <div className="flex items-baseline justify-between">
-                  <span className="font-medium">{o.developer.name}</span>
-                  <span className="font-semibold">
-                    {formatUsd(o.priceCents)}
-                  </span>
-                </div>
-                <p className="text-xs text-slate-500">
-                  delivers in {o.deliveryDays} days ·{" "}
-                  <span
-                    className={
-                      o.status === "ACCEPTED"
-                        ? "text-emerald-600"
-                        : o.status === "DECLINED"
-                          ? "text-slate-400"
-                          : "text-amber-600"
-                    }
-                  >
-                    {o.status}
-                  </span>
-                </p>
-                <p className="mt-2 text-sm text-slate-600">{o.message}</p>
-
-                {/* Buyer accepts the offer → fund escrow via PayPal authorize */}
-                {isOwner && o.status === "PENDING" && request.status === "OPEN" && (
-                  <div className="mt-3 border-t border-slate-100 pt-3">
-                    <FundEscrowButton
-                      offerId={o.id}
-                      paypalClientId={env.paypalClientId}
-                    />
-                  </div>
-                )}
+        {/* Header */}
+        <Reveal>
+          <header className="glass-strong relative mt-4 overflow-hidden rounded-3xl p-8 md:p-10">
+            <div aria-hidden className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-cyan-500/20 blur-3xl" />
+            <div className="relative">
+              <div className="flex flex-wrap items-center gap-3">
+                <span className="chip chip-cyan">{request.status.replace("_", " ")}</span>
+                {request.category && <span className="chip">{request.category}</span>}
               </div>
-            ))}
+              <h1 className="mt-4 text-3xl font-bold text-white md:text-5xl">{request.title}</h1>
+              <div className="mt-6 flex flex-wrap gap-8 text-sm">
+                <div>
+                  <p className="text-dim text-xs uppercase tracking-widest">Budget</p>
+                  <p className="mt-1 font-mono text-2xl font-bold text-white">
+                    {formatUsd(request.budgetCents)}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-dim text-xs uppercase tracking-widest">Deadline</p>
+                  <p className="mt-1 font-mono text-2xl font-bold text-white">
+                    {request.deadlineDays}d
+                  </p>
+                </div>
+                <div>
+                  <p className="text-dim text-xs uppercase tracking-widest">Posted by</p>
+                  <p className="mt-1 text-lg font-semibold text-white">{request.buyer.name}</p>
+                </div>
+              </div>
+            </div>
+          </header>
+        </Reveal>
+
+        <div className="mt-8 grid gap-6 lg:grid-cols-3">
+          <div className="space-y-6 lg:col-span-2">
+            <Reveal>
+              <section className="glass rounded-2xl p-7">
+                <p className="eyebrow">Brief</p>
+                <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-white/80">
+                  {request.brief}
+                </p>
+              </section>
+            </Reveal>
+
+            {request.refinedBrief && (
+              <Reveal>
+                <section className="relative overflow-hidden rounded-2xl border border-violet-400/30 bg-violet-500/[0.06] p-7">
+                  <p className="eyebrow !text-violet-300">✦ AI-refined spec</p>
+                  <p className="mt-4 whitespace-pre-wrap text-sm leading-relaxed text-white/85">
+                    {request.refinedBrief}
+                  </p>
+                </section>
+              </Reveal>
+            )}
+
+            {/* Offer form for developers */}
+            {canOffer && (
+              <Reveal>
+                <OfferForm requestId={request.id} />
+              </Reveal>
+            )}
+            {!user && (
+              <Link href="/login" className="btn-ghost w-full !py-5">
+                Log in to make an offer
+              </Link>
+            )}
           </div>
 
-          {request.order && (
-            <Link
-              href={`/custom-orders/${request.order.id}`}
-              className="mt-4 block rounded-md bg-slate-900 px-4 py-2 text-center text-sm font-medium text-white hover:bg-slate-700"
-            >
-              Open escrow workspace →
-            </Link>
-          )}
-        </aside>
+          {/* Offers column */}
+          <aside>
+            <h2 className="flex items-center gap-3 text-xl font-semibold text-white">
+              Offers
+              <span className="chip">{request.offers.length}</span>
+            </h2>
+            <div className="mt-4 space-y-3">
+              {request.offers.length === 0 && (
+                <p className="glass text-dim rounded-2xl p-5 text-sm">No offers yet.</p>
+              )}
+              {request.offers.map((o, i) => (
+                <Reveal key={o.id} delay={i * 0.08}>
+                  <div className="glass rounded-2xl p-5 transition hover:border-violet-400/40">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <span className="flex items-center gap-2 font-medium text-white">
+                        {/* Avatar with the developer's initial. */}
+                        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-gradient-to-br from-violet-500 to-cyan-400 text-xs font-bold">
+                          {o.developer.name.slice(0, 1)}
+                        </span>
+                        {o.developer.name}
+                      </span>
+                      <span className="font-mono text-lg font-bold text-white">
+                        {formatUsd(o.priceCents)}
+                      </span>
+                    </div>
+                    <p className="text-dim mt-2 text-xs">
+                      delivers in {o.deliveryDays} days ·{" "}
+                      <span
+                        className={
+                          o.status === "ACCEPTED"
+                            ? "text-emerald-300"
+                            : o.status === "DECLINED"
+                              ? "text-white/30"
+                              : "text-amber-300"
+                        }
+                      >
+                        {o.status}
+                      </span>
+                    </p>
+                    <p className="text-muted mt-3 text-sm">{o.message}</p>
+
+                    {/* Buyer accepts the offer → fund escrow via PayPal authorize */}
+                    {isOwner && o.status === "PENDING" && request.status === "OPEN" && (
+                      <div className="mt-4 border-t border-white/10 pt-4">
+                        <FundEscrowButton offerId={o.id} paypalClientId={env.paypalClientId} />
+                      </div>
+                    )}
+                  </div>
+                </Reveal>
+              ))}
+            </div>
+
+            {request.order && (
+              <Link href={`/custom-orders/${request.order.id}`} className="btn-primary mt-5 w-full">
+                Open escrow workspace →
+              </Link>
+            )}
+          </aside>
+        </div>
       </div>
-    </div>
+    </PageTransition>
   );
 }

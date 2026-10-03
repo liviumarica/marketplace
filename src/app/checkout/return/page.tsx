@@ -33,8 +33,14 @@ function ReturnHandler() {
 
   return (
     <div className="mx-auto flex max-w-md flex-col items-center px-4 py-24 text-center">
-      <div className="h-8 w-8 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
-      <p className="mt-4 text-sm text-slate-600">
+      {/* Orbiting "processing" loader: two counter-spinning neon arcs. */}
+      <div className="relative h-20 w-20">
+        <span className="absolute inset-0 animate-spin rounded-full border-2 border-transparent border-t-cyan-300 border-r-violet-400 shadow-[0_0_30px_rgba(139,92,246,0.6)]" />
+        <span className="absolute inset-3 animate-[spin_1.6s_linear_infinite_reverse] rounded-full border-2 border-transparent border-b-fuchsia-400 border-l-cyan-300" />
+        <span className="absolute inset-7 rounded-full bg-gradient-to-br from-violet-500 to-cyan-400 blur-[2px]" />
+      </div>
+      <p className="eyebrow mt-8">PayPal</p>
+      <p className="text-muted mt-3 text-sm">
         {status ??
           (token
             ? "Finalizing your PayPal payment…"

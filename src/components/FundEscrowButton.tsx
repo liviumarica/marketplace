@@ -25,6 +25,8 @@ export function FundEscrowButton({
 
   return (
     <div>
+      {/* PayPal's iframe buttons sit on a light card for maximum legibility. */}
+      <div className="paypal-frame">
       <PayPalScriptProvider
         options={{
           clientId: paypalClientId,
@@ -63,12 +65,9 @@ export function FundEscrowButton({
           onError={(err) => setError(String(err))}
         />
       </PayPalScriptProvider>
-      {error && (
-        <p className="mt-1 rounded-md bg-red-50 px-2 py-1 text-xs text-red-700">
-          {error}
-        </p>
-      )}
-      <p className="mt-1 text-xs text-slate-500">
+      </div>
+      {error && <p className="alert-error mt-2 text-xs">{error}</p>}
+      <p className="text-dim mt-2 text-xs">
         Funds are held (not charged) until you accept the delivery.
       </p>
     </div>

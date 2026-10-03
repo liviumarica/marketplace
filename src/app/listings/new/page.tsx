@@ -10,6 +10,9 @@
  */
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { PageTransition } from "@/components/fx/PageTransition";
+import { PageHeader } from "@/components/fx/PageHeader";
+import { Reveal } from "@/components/fx/Reveal";
 
 const CATEGORIES = [
   "Productivity",
@@ -151,56 +154,69 @@ export default function NewListingPage() {
   const isError = status?.startsWith("error:");
 
   return (
+    <PageTransition>
     <div className="mx-auto max-w-3xl px-4 py-10">
-      <h1 className="text-2xl font-bold">Sell your AI-built app</h1>
-      <p className="mt-1 text-sm text-slate-600">
-        You are selling the complete business: source code, brand, and docs.
-        The platform keeps a 10% commission on the sale.
-      </p>
+      <PageHeader
+        eyebrow="Sell"
+        title="Sell your AI-built app"
+        subtitle="You are selling the complete business: source code, brand, and docs. The platform keeps a 10% commission on the sale."
+      />
 
-      {/* AI autopilot */}
-      <section className="mt-6 rounded-xl border border-indigo-200 bg-indigo-50/50 p-5">
-        <h2 className="font-semibold text-indigo-900">AI listing autopilot</h2>
-        <p className="mt-1 text-sm text-indigo-800">
-          Paste a GitHub repo or live demo URL — the AI reads it and writes
-          your listing.
-        </p>
-        <div className="mt-3 flex gap-2">
-          <input
-            type="url"
-            value={sourceUrl}
-            onChange={(e) => setSourceUrl(e.target.value)}
-            placeholder="https://github.com/you/your-app or https://your-demo.com"
-            className="flex-1 rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
-          />
-          <button
-            type="button"
-            onClick={autofill}
-            disabled={!sourceUrl || busy !== null}
-            className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
-          >
-            {busy === "ai" ? "Reading…" : "Generate with AI"}
-          </button>
-        </div>
-      </section>
+      {/* AI autopilot — the glowing "magic" panel */}
+      <Reveal delay={0.2}>
+        <section className="neon-border relative mt-10 overflow-hidden rounded-3xl p-7 shadow-[0_0_80px_-25px_rgba(139,92,246,0.9)]">
+          {/* Shimmer sweep while the AI is reading the URL. */}
+          {busy === "ai" && (
+            <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+              <div className="h-full w-1/2 animate-[marquee_1.4s_linear_infinite] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
+            </div>
+          )}
+          <p className="eyebrow">✦ AI listing autopilot</p>
+          <h2 className="mt-3 text-2xl font-semibold text-white">
+            Paste a link. <span className="text-gradient">Get a listing.</span>
+          </h2>
+          <p className="text-muted mt-2 text-sm">
+            Paste a GitHub repo or live demo URL — the AI reads it and writes
+            your listing.
+          </p>
+          <div className="mt-5 flex flex-col gap-2 sm:flex-row">
+            <input
+              type="url"
+              value={sourceUrl}
+              onChange={(e) => setSourceUrl(e.target.value)}
+              placeholder="https://github.com/you/your-app or https://your-demo.com"
+              className="field flex-1"
+            />
+            <button
+              type="button"
+              onClick={autofill}
+              disabled={!sourceUrl || busy !== null}
+              className="btn-primary"
+            >
+              {busy === "ai" ? "Reading…" : "Generate with AI"}
+            </button>
+          </div>
+        </section>
+      </Reveal>
 
-      <form onSubmit={submit} className="mt-8 space-y-5">
+      <Reveal delay={0.3}>
+      <form onSubmit={submit} className="glass mt-8 space-y-5 rounded-3xl p-7">
         <div className="grid gap-4 sm:grid-cols-2">
-          <label className="flex flex-col gap-1 text-sm">
+          <label className="field-label">
             Title *
             <input
               required
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              className="rounded-md border border-slate-300 bg-white px-3 py-2 focus:border-indigo-500 focus:outline-none"
+              className="field"
             />
           </label>
-          <label className="flex flex-col gap-1 text-sm">
+          <label className="field-label">
             Category *
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              className="rounded-md border border-slate-300 bg-white px-3 py-2 focus:border-indigo-500 focus:outline-none"
+              className="field"
             >
               {CATEGORIES.map((c) => (
                 <option key={c}>{c}</option>
@@ -209,73 +225,73 @@ export default function NewListingPage() {
           </label>
         </div>
 
-        <label className="flex flex-col gap-1 text-sm">
+        <label className="field-label">
           Tagline
           <input
             value={tagline}
             onChange={(e) => setTagline(e.target.value)}
-            className="rounded-md border border-slate-300 bg-white px-3 py-2 focus:border-indigo-500 focus:outline-none"
+            className="field"
           />
         </label>
 
-        <label className="flex flex-col gap-1 text-sm">
+        <label className="field-label">
           Description *
           <textarea
             required
             rows={6}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
-            className="rounded-md border border-slate-300 bg-white px-3 py-2 focus:border-indigo-500 focus:outline-none"
+            className="field"
           />
         </label>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <label className="flex flex-col gap-1 text-sm">
+          <label className="field-label">
             Tech stack (comma-separated)
             <input
               value={techStack}
               onChange={(e) => setTechStack(e.target.value)}
               placeholder="Next.js, Postgres, OpenAI"
-              className="rounded-md border border-slate-300 bg-white px-3 py-2 focus:border-indigo-500 focus:outline-none"
+              className="field"
             />
           </label>
-          <label className="flex flex-col gap-1 text-sm">
+          <label className="field-label">
             Features (one per line)
             <textarea
               rows={3}
               value={features}
               onChange={(e) => setFeatures(e.target.value)}
-              className="rounded-md border border-slate-300 bg-white px-3 py-2 focus:border-indigo-500 focus:outline-none"
+              className="field"
             />
           </label>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <label className="flex flex-col gap-1 text-sm">
+          <label className="field-label">
             Demo URL (app will be AI-verified)
             <input
               type="url"
               value={demoUrl}
               onChange={(e) => setDemoUrl(e.target.value)}
               placeholder="https://your-app-demo.com"
-              className="rounded-md border border-slate-300 bg-white px-3 py-2 focus:border-indigo-500 focus:outline-none"
+              className="field"
             />
           </label>
-          <label className="flex flex-col gap-1 text-sm">
+          <label className="field-label">
             Repo URL (transferred to buyer)
             <input
               type="url"
               value={repoUrl}
               onChange={(e) => setRepoUrl(e.target.value)}
               placeholder="https://github.com/you/your-app"
-              className="rounded-md border border-slate-300 bg-white px-3 py-2 focus:border-indigo-500 focus:outline-none"
+              className="field"
             />
           </label>
         </div>
 
         {/* Price with AI suggestion */}
         <div className="flex items-end gap-3">
-          <label className="flex flex-1 flex-col gap-1 text-sm">
+          <label className="field-label flex-1">
             Asking price (USD) *
             <input
               required
@@ -284,32 +300,28 @@ export default function NewListingPage() {
               step="0.01"
               value={priceUsd}
               onChange={(e) => setPriceUsd(e.target.value)}
-              className="rounded-md border border-slate-300 bg-white px-3 py-2 focus:border-indigo-500 focus:outline-none"
+              className="field"
             />
           </label>
           <button
             type="button"
             onClick={suggestPrice}
             disabled={!title || busy !== null}
-            className="rounded-md border border-indigo-300 px-4 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-50 disabled:opacity-50"
+            className="btn-ghost"
           >
-            {busy === "price" ? "Pricing…" : "Suggest with AI"}
+            {busy === "price" ? "Pricing…" : "✦ Suggest with AI"}
           </button>
         </div>
-        {priceHint && (
-          <p className="rounded-md bg-indigo-50 px-3 py-2 text-xs text-indigo-800">
-            {priceHint}
-          </p>
-        )}
+        {priceHint && <p className="alert-info text-xs">{priceHint}</p>}
 
         {/* PayPal payout details */}
-        <section className="rounded-xl border border-slate-200 bg-white p-5">
-          <h2 className="font-semibold">Your PayPal payout details (sandbox)</h2>
-          <p className="mt-1 text-xs text-slate-500">
+        <section className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
+          <h2 className="font-semibold text-white">Your PayPal payout details (sandbox)</h2>
+          <p className="text-dim mt-1 text-xs">
             Where your 90% share goes — use your sandbox business account.
           </p>
           <div className="mt-3 grid gap-4 sm:grid-cols-2">
-            <label className="flex flex-col gap-1 text-sm">
+            <label className="field-label">
               PayPal email *
               <input
                 required
@@ -317,39 +329,33 @@ export default function NewListingPage() {
                 value={paypalEmail}
                 onChange={(e) => setPaypalEmail(e.target.value)}
                 placeholder="seller@business.example.com"
-                className="rounded-md border border-slate-300 bg-white px-3 py-2 focus:border-indigo-500 focus:outline-none"
+                className="field"
               />
             </label>
-            <label className="flex flex-col gap-1 text-sm">
+            <label className="field-label">
               Merchant ID (for direct split)
               <input
                 value={paypalMerchantId}
                 onChange={(e) => setPaypalMerchantId(e.target.value)}
                 placeholder="ABC123DEF456"
-                className="rounded-md border border-slate-300 bg-white px-3 py-2 focus:border-indigo-500 focus:outline-none"
+                className="field"
               />
             </label>
           </div>
         </section>
 
         {status && (
-          <p
-            className={`rounded-md px-3 py-2 text-sm ${
-              isError ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-700"
-            }`}
-          >
+          <p className={isError ? "alert-error" : "alert-success"}>
             {status.slice(status.indexOf(":") + 1)}
           </p>
         )}
 
-        <button
-          type="submit"
-          disabled={busy !== null}
-          className="w-full rounded-md bg-indigo-600 px-4 py-3 font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
-        >
-          {busy === "submit" ? "Publishing…" : "Publish listing"}
+        <button type="submit" disabled={busy !== null} className="btn-primary w-full !py-3.5">
+          {busy === "submit" ? "Publishing…" : "Publish listing →"}
         </button>
       </form>
+      </Reveal>
     </div>
+    </PageTransition>
   );
 }

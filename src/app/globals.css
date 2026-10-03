@@ -1,22 +1,729 @@
 @import "tailwindcss";
 
 /*
- * AgentBay design tokens — light, professional SaaS look.
- * Indigo is the primary accent; slate carries the neutral UI.
+ * ============================================================================
+ * AgentBay — "Cosmic Neon" design system
+ * ----------------------------------------------------------------------------
+ * A dark, deep-space canvas lit by aurora gradients (violet → cyan → magenta).
+ * Surfaces are frosted glass, accents glow, and motion is everywhere — but all
+ * heavy motion is switched off for users who prefer reduced motion.
+ *
+ * Structure of this file:
+ *   1. Raw tokens (CSS custom properties)
+ *   2. Tailwind v4 theme bridge (@theme) — exposes tokens as utilities
+ *   3. Base element styles (body, selection, scrollbar, focus)
+ *   4. Component classes (glass, buttons, fields, chips, panels…)
+ *   5. Keyframes + animation helpers
+ *   6. View-transition styling (route changes)
+ *   7. Third-party widget overrides (PayPal frame, AG Grid, Bryntum)
+ *   8. Reduced-motion fallbacks
+ * ============================================================================
  */
+
+/* ---------------------------------------------------------------------------
+ * 1. Raw tokens
+ * ------------------------------------------------------------------------- */
 :root {
-  --background: #f8fafc;
-  --foreground: #0f172a;
+  /* Deep-space background and foreground ink. */
+  --background: #05060f;
+  --foreground: #e7e9ff;
+
+  /* Neon accent palette used across gradients and glows. */
+  --violet: #8b5cf6;
+  --cyan: #22d3ee;
+  --magenta: #e879f9;
+  --lime: #a3e635;
+  --rose: #fb7185;
+  --amber: #fbbf24;
+
+  /* Glass surfaces: translucent fills + hairline borders. */
+  --glass-fill: rgba(255, 255, 255, 0.045);
+  --glass-fill-strong: rgba(255, 255, 255, 0.08);
+  --glass-border: rgba(255, 255, 255, 0.1);
+  --glass-border-strong: rgba(255, 255, 255, 0.18);
+
+  /* The signature aurora gradient, reused by buttons, text and borders. */
+  --aurora: linear-gradient(
+    100deg,
+    var(--violet) 0%,
+    var(--cyan) 35%,
+    var(--magenta) 70%,
+    var(--violet) 100%
+  );
+
+  /* Lets Bryntum / AG Grid / native controls render their dark variants. */
+  color-scheme: dark;
 }
 
+/*
+ * Registered custom property so the conic-gradient angle can be animated
+ * smoothly (used by the spinning neon border).
+ */
+@property --angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+/* ---------------------------------------------------------------------------
+ * 2. Tailwind theme bridge — makes tokens available as utilities such as
+ *    `bg-void`, `text-ink`, `text-neon-cyan`, `font-display`.
+ * ------------------------------------------------------------------------- */
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-void: #05060f;
+  --color-ink: #e7e9ff;
+  --color-neon-violet: var(--violet);
+  --color-neon-cyan: var(--cyan);
+  --color-neon-magenta: var(--magenta);
+  --color-neon-lime: var(--lime);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-display);
+}
+
+/* ---------------------------------------------------------------------------
+ * 3. Base element styles
+ * ------------------------------------------------------------------------- */
+html {
+  background: var(--background);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
+  /* Slightly wider letter shapes look crisper on dark backgrounds. */
+  font-feature-settings: "ss01", "cv11";
+}
+
+/* Headlines use the display font by default. */
+h1,
+h2,
+h3 {
+  font-family: var(--font-display), var(--font-geist-sans), sans-serif;
+  letter-spacing: -0.02em;
+}
+
+/* Neon text selection. */
+::selection {
+  background: rgba(139, 92, 246, 0.45);
+  color: #fff;
+}
+
+/* Thin glowing scrollbar (WebKit + Firefox). */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(139, 92, 246, 0.5) transparent;
+}
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: linear-gradient(var(--violet), var(--cyan));
+  border-radius: 999px;
+  border: 3px solid var(--background);
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* Visible, on-brand keyboard focus for accessibility. */
+:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+}
+
+/* Native date-pickers / selects should follow the dark scheme. */
+input,
+select,
+textarea {
+  color-scheme: dark;
+}
+option {
+  background: #0d0f22;
+  color: var(--foreground);
+}
+
+/* Lenis smooth-scroll recommended base rules. */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+.lenis.lenis-smooth [data-lenis-prevent] {
+  overscroll-behavior: contain;
+}
+.lenis.lenis-stopped {
+  overflow: hidden;
+}
+
+/* ---------------------------------------------------------------------------
+ * 4. Component classes
+ * ------------------------------------------------------------------------- */
+@layer components {
+  /* Frosted-glass surface — the default card/panel look. */
+  .glass {
+    background: var(--glass-fill);
+    border: 1px solid var(--glass-border);
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.06),
+      0 20px 60px -30px rgba(0, 0, 0, 0.8);
+  }
+
+  /* A brighter glass surface for emphasized panels (sidebars, modals). */
+  .glass-strong {
+    background: var(--glass-fill-strong);
+    border: 1px solid var(--glass-border-strong);
+    backdrop-filter: blur(24px) saturate(160%);
+    -webkit-backdrop-filter: blur(24px) saturate(160%);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.1),
+      0 30px 80px -30px rgba(76, 29, 149, 0.55);
+  }
+
+  /*
+   * Spinning neon border. The element gets a transparent border and two
+   * backgrounds: an opaque padding-box fill and an animated conic-gradient
+   * border-box underneath, so only the 1px rim shows the gradient.
+   */
+  .neon-border {
+    border: 1px solid transparent;
+    background:
+      linear-gradient(#0a0b1a, #0a0b1a) padding-box,
+      conic-gradient(
+          from var(--angle),
+          var(--violet),
+          var(--cyan),
+          var(--magenta),
+          var(--violet)
+        )
+        border-box;
+    animation: border-spin 6s linear infinite;
+  }
+
+  /* Gradient text that slowly shimmers across the aurora palette. */
+  .text-gradient {
+    background: var(--aurora);
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: shimmer 6s linear infinite;
+  }
+
+  /* Static softer gradient for secondary headings. */
+  .text-gradient-soft {
+    background: linear-gradient(180deg, #ffffff 20%, #a5a9d6 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* Primary call-to-action button: aurora fill + glow + light sweep. */
+  .btn-primary {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    overflow: hidden;
+    border-radius: 0.875rem;
+    padding: 0.7rem 1.25rem;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: #fff;
+    background: var(--aurora);
+    background-size: 200% auto;
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.12) inset,
+      0 10px 30px -10px rgba(139, 92, 246, 0.8),
+      0 0 40px -10px rgba(34, 211, 238, 0.6);
+    transition:
+      background-position 0.6s ease,
+      transform 0.2s ease,
+      box-shadow 0.3s ease,
+      opacity 0.2s ease;
+  }
+  .btn-primary:hover {
+    background-position: right center;
+    box-shadow:
+      0 0 0 1px rgba(255, 255, 255, 0.2) inset,
+      0 14px 40px -10px rgba(139, 92, 246, 1),
+      0 0 60px -8px rgba(34, 211, 238, 0.8);
+  }
+  .btn-primary:active {
+    transform: scale(0.97);
+  }
+  /* Diagonal light sweep that runs across the button on hover. */
+  .btn-primary::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      115deg,
+      transparent 30%,
+      rgba(255, 255, 255, 0.45) 50%,
+      transparent 70%
+    );
+    transform: translateX(-120%);
+    transition: transform 0.8s ease;
+  }
+  .btn-primary:hover::after {
+    transform: translateX(120%);
+  }
+  .btn-primary:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  /* Secondary glass button. */
+  .btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    border-radius: 0.875rem;
+    padding: 0.7rem 1.25rem;
+    font-weight: 500;
+    font-size: 0.9rem;
+    color: var(--foreground);
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--glass-border-strong);
+    backdrop-filter: blur(12px);
+    transition:
+      background 0.25s ease,
+      border-color 0.25s ease,
+      box-shadow 0.25s ease,
+      transform 0.2s ease;
+  }
+  .btn-ghost:hover {
+    background: rgba(255, 255, 255, 0.09);
+    border-color: rgba(34, 211, 238, 0.55);
+    box-shadow: 0 0 30px -8px rgba(34, 211, 238, 0.6);
+  }
+  .btn-ghost:active {
+    transform: scale(0.97);
+  }
+  .btn-ghost:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+  }
+
+  /*
+   * Destructive and success variants (escrow decisions).
+   * Use together with `.btn-ghost`, e.g. className="btn-ghost btn-success".
+   */
+  .btn-success {
+    border-color: rgba(52, 211, 153, 0.5);
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.35), rgba(34, 211, 238, 0.25));
+    color: #ecfdf5;
+  }
+  .btn-success:hover {
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.5), rgba(34, 211, 238, 0.35));
+    box-shadow: 0 0 34px -6px rgba(52, 211, 153, 0.8);
+    border-color: rgba(52, 211, 153, 0.9);
+  }
+  .btn-danger {
+    border-color: rgba(251, 113, 133, 0.45);
+    color: #fecdd3;
+  }
+  .btn-danger:hover {
+    background: rgba(251, 113, 133, 0.12);
+    border-color: rgba(251, 113, 133, 0.9);
+    box-shadow: 0 0 30px -8px rgba(251, 113, 133, 0.8);
+  }
+
+  /* Form field — glass input with a glowing focus ring. */
+  .field {
+    width: 100%;
+    border-radius: 0.75rem;
+    padding: 0.65rem 0.9rem;
+    font-size: 0.9rem;
+    color: var(--foreground);
+    background: rgba(255, 255, 255, 0.035);
+    border: 1px solid var(--glass-border);
+    transition:
+      border-color 0.2s ease,
+      box-shadow 0.25s ease,
+      background 0.2s ease;
+  }
+  .field::placeholder {
+    color: rgba(199, 203, 240, 0.35);
+  }
+  .field:hover {
+    border-color: var(--glass-border-strong);
+  }
+  .field:focus {
+    outline: none;
+    background: rgba(255, 255, 255, 0.06);
+    border-color: rgba(139, 92, 246, 0.8);
+    box-shadow:
+      0 0 0 4px rgba(139, 92, 246, 0.18),
+      0 0 30px -6px rgba(34, 211, 238, 0.5);
+  }
+
+  /* Field label wrapper (label text above the control). */
+  .field-label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    font-size: 0.8rem;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    color: rgba(199, 203, 240, 0.8);
+  }
+
+  /* Small pill chip used for categories, statuses, tech tags. */
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    border-radius: 999px;
+    padding: 0.2rem 0.65rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    border: 1px solid var(--glass-border-strong);
+    background: rgba(255, 255, 255, 0.05);
+    color: rgba(231, 233, 255, 0.85);
+  }
+  .chip-violet {
+    border-color: rgba(139, 92, 246, 0.45);
+    background: rgba(139, 92, 246, 0.14);
+    color: #d8ccff;
+  }
+  .chip-cyan {
+    border-color: rgba(34, 211, 238, 0.45);
+    background: rgba(34, 211, 238, 0.12);
+    color: #b5f3ff;
+  }
+  .chip-green {
+    border-color: rgba(52, 211, 153, 0.45);
+    background: rgba(52, 211, 153, 0.12);
+    color: #a7f3d0;
+  }
+  .chip-amber {
+    border-color: rgba(251, 191, 36, 0.45);
+    background: rgba(251, 191, 36, 0.12);
+    color: #fde68a;
+  }
+  .chip-rose {
+    border-color: rgba(251, 113, 133, 0.45);
+    background: rgba(251, 113, 133, 0.12);
+    color: #fecdd3;
+  }
+
+  /* Inline feedback banners (errors / success). */
+  .alert-error {
+    border-radius: 0.75rem;
+    padding: 0.6rem 0.9rem;
+    font-size: 0.85rem;
+    color: #fecdd3;
+    background: rgba(251, 113, 133, 0.1);
+    border: 1px solid rgba(251, 113, 133, 0.35);
+  }
+  .alert-success {
+    border-radius: 0.75rem;
+    padding: 0.6rem 0.9rem;
+    font-size: 0.85rem;
+    color: #a7f3d0;
+    background: rgba(52, 211, 153, 0.1);
+    border: 1px solid rgba(52, 211, 153, 0.35);
+  }
+  .alert-info {
+    border-radius: 0.75rem;
+    padding: 0.6rem 0.9rem;
+    font-size: 0.85rem;
+    color: #d8ccff;
+    background: rgba(139, 92, 246, 0.1);
+    border: 1px solid rgba(139, 92, 246, 0.35);
+  }
+  .alert-warn {
+    border-radius: 0.75rem;
+    padding: 0.6rem 0.9rem;
+    font-size: 0.85rem;
+    color: #fde68a;
+    background: rgba(251, 191, 36, 0.1);
+    border: 1px solid rgba(251, 191, 36, 0.35);
+  }
+
+  /* Small all-caps eyebrow label above section headings. */
+  .eyebrow {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-family: var(--font-geist-mono), monospace;
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: var(--cyan);
+  }
+  .eyebrow::before {
+    content: "";
+    width: 1.5rem;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--cyan));
+  }
+
+  /* Muted body copy colour on dark backgrounds (WCAG AA contrast). */
+  .text-muted {
+    color: rgba(199, 203, 240, 0.68);
+  }
+  .text-dim {
+    color: rgba(199, 203, 240, 0.45);
+  }
+
+  /* Neon link style. */
+  .link-neon {
+    color: var(--cyan);
+    text-decoration: underline;
+    text-decoration-color: rgba(34, 211, 238, 0.4);
+    text-underline-offset: 3px;
+    transition: color 0.2s, text-decoration-color 0.2s;
+  }
+  .link-neon:hover {
+    color: #fff;
+    text-decoration-color: var(--magenta);
+  }
+
+  /* Perspective "synthwave" grid floor used behind hero sections. */
+  .grid-floor {
+    background-image:
+      linear-gradient(rgba(139, 92, 246, 0.25) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(139, 92, 246, 0.25) 1px, transparent 1px);
+    background-size: 60px 60px;
+    mask-image: radial-gradient(ellipse at center top, black 10%, transparent 70%);
+    transform: perspective(600px) rotateX(60deg);
+    transform-origin: top center;
+    animation: grid-move 4s linear infinite;
+  }
+
+  /* Subtle dotted backdrop for sections. */
+  .dot-bg {
+    background-image: radial-gradient(rgba(255, 255, 255, 0.09) 1px, transparent 1px);
+    background-size: 22px 22px;
+  }
+
+  /* Data table on dark glass. */
+  .table-neon th {
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgba(199, 203, 240, 0.55);
+  }
+  .table-neon tbody tr {
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    transition: background 0.2s;
+  }
+  .table-neon tbody tr:hover {
+    background: rgba(139, 92, 246, 0.08);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * 5. Keyframes + animation helpers
+ * ------------------------------------------------------------------------- */
+@keyframes shimmer {
+  to {
+    background-position: 200% center;
+  }
+}
+
+@keyframes border-spin {
+  to {
+    --angle: 360deg;
+  }
+}
+
+/* Slow drifting aurora blobs in the global background. */
+@keyframes aurora-drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1) rotate(0deg);
+  }
+  33% {
+    transform: translate3d(8%, -6%, 0) scale(1.15) rotate(25deg);
+  }
+  66% {
+    transform: translate3d(-6%, 8%, 0) scale(0.92) rotate(-20deg);
+  }
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-14px);
+  }
+}
+
+@keyframes marquee {
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes pulse-ring {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.8;
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+@keyframes grid-move {
+  to {
+    background-position: 0 60px;
+  }
+}
+
+/* Horizontal scan-line that sweeps across the agent console. */
+@keyframes scan {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(100%);
+  }
+}
+
+/* Flowing energy along the "how it works" beam. */
+@keyframes beam {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 200% 50%;
+  }
+}
+
+/* Typing dots of the AI agent. */
+@keyframes blink-dot {
+  0%,
+  80%,
+  100% {
+    opacity: 0.2;
+    transform: translateY(0);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-3px);
+  }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+.animate-marquee {
+  animation: marquee var(--marquee-duration, 40s) linear infinite;
+}
+.animate-pulse-ring {
+  animation: pulse-ring 2s cubic-bezier(0.2, 0.6, 0.4, 1) infinite;
+}
+.animate-beam {
+  background: linear-gradient(90deg, transparent, var(--cyan), var(--magenta), transparent);
+  background-size: 200% 100%;
+  animation: beam 2.5s linear infinite;
+}
+.typing-dot {
+  animation: blink-dot 1.2s infinite;
+}
+
+/* ---------------------------------------------------------------------------
+ * 6. View transitions — every route change cross-fades with a slight blur
+ *    and lift; shared listing titles morph between grid and detail page.
+ * ------------------------------------------------------------------------- */
+/* Let clicks pass through to the live page while a transition runs. */
+::view-transition {
+  pointer-events: none;
+}
+
+/* Keep the floating navbar anchored — only the page content animates. */
+::view-transition-group(site-header) {
+  animation: none;
+  z-index: 100;
+}
+::view-transition-old(site-header) {
+  display: none;
+}
+::view-transition-new(site-header) {
+  animation: none;
+}
+
+::view-transition-old(.page) {
+  animation: vt-out 260ms cubic-bezier(0.4, 0, 1, 1) both;
+}
+::view-transition-new(.page) {
+  animation: vt-in 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+::view-transition-group(.morph) {
+  animation-duration: 500ms;
+  animation-timing-function: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes vt-out {
+  to {
+    opacity: 0;
+    filter: blur(8px);
+    transform: translateY(-12px) scale(0.99);
+  }
+}
+@keyframes vt-in {
+  from {
+    opacity: 0;
+    filter: blur(10px);
+    transform: translateY(18px) scale(1.01);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * 7. Third-party widget overrides
+ * ------------------------------------------------------------------------- */
+
+/* PayPal buttons render in an iframe on a white card for maximum legibility. */
+.paypal-frame {
+  border-radius: 0.9rem;
+  padding: 0.75rem 0.75rem 0.25rem;
+  background: #ffffff;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2), 0 20px 50px -20px rgba(34, 211, 238, 0.45);
+}
+
+/* Bryntum Calendar: blend its dark theme into our glass panels. */
+.bryntum-host .b-calendar,
+.bryntum-host .b-panel-body-wrap,
+.bryntum-host .b-calendar-body {
+  background: transparent !important;
+}
+
+/* ---------------------------------------------------------------------------
+ * 8. Reduced motion — keep the design, drop the motion.
+ * ------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  ::view-transition-old(*),
+  ::view-transition-new(*),
+  ::view-transition-group(*) {
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+  }
 }

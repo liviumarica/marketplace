@@ -7,6 +7,9 @@
  */
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { PageTransition } from "@/components/fx/PageTransition";
+import { PageHeader } from "@/components/fx/PageHeader";
+import { Reveal } from "@/components/fx/Reveal";
 
 export default function NewRequestPage() {
   const router = useRouter();
@@ -67,27 +70,29 @@ export default function NewRequestPage() {
   const isError = status?.startsWith("error:");
 
   return (
+    <PageTransition>
     <div className="mx-auto max-w-3xl px-4 py-10">
-      <h1 className="text-2xl font-bold">Post a custom build request</h1>
-      <p className="mt-1 text-sm text-slate-600">
-        Describe the app you need. Developers will send offers; your payment is
-        held in PayPal escrow and only released when you accept the delivery.
-      </p>
+      <PageHeader
+        eyebrow="Custom build"
+        title="Post a custom build request"
+        subtitle="Describe the app you need. Developers will send offers; your payment is held in PayPal escrow and only released when you accept the delivery."
+      />
 
-      <form onSubmit={submit} className="mt-8 space-y-5">
-        <label className="flex flex-col gap-1 text-sm">
+      <Reveal delay={0.25}>
+      <form onSubmit={submit} className="glass mt-10 space-y-5 rounded-3xl p-7">
+        <label className="field-label">
           Title *
           <input
             required
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="e.g. Booking app for my barbershop"
-            className="rounded-md border border-slate-300 bg-white px-3 py-2 focus:border-indigo-500 focus:outline-none"
+            className="field"
           />
         </label>
 
         <div>
-          <label className="flex flex-col gap-1 text-sm">
+          <label className="field-label">
             Describe what you need *
             <textarea
               required
@@ -95,35 +100,45 @@ export default function NewRequestPage() {
               value={brief}
               onChange={(e) => setBrief(e.target.value)}
               placeholder="What should the app do? Who will use it? Any must-have features?"
-              className="rounded-md border border-slate-300 bg-white px-3 py-2 focus:border-indigo-500 focus:outline-none"
+              className="field"
             />
           </label>
           <button
             type="button"
             onClick={refine}
             disabled={!title || brief.length < 10 || busy !== null}
-            className="mt-2 rounded-md border border-indigo-300 px-4 py-2 text-sm font-medium text-indigo-700 hover:bg-indigo-50 disabled:opacity-50"
+            className="btn-ghost mt-3"
           >
-            {busy === "ai" ? "Refining…" : "Refine brief with AI"}
+            {busy === "ai" ? (
+              <>
+                {/* Animated "thinking" dots while the AI refines. */}
+                <span className="flex gap-1">
+                  <span className="typing-dot h-1.5 w-1.5 rounded-full bg-cyan-300" />
+                  <span className="typing-dot h-1.5 w-1.5 rounded-full bg-cyan-300 [animation-delay:0.15s]" />
+                  <span className="typing-dot h-1.5 w-1.5 rounded-full bg-cyan-300 [animation-delay:0.3s]" />
+                </span>
+                Refining…
+              </>
+            ) : (
+              "✦ Refine brief with AI"
+            )}
           </button>
         </div>
 
         {refinedBrief && (
-          <div className="rounded-xl border border-indigo-200 bg-indigo-50/50 p-4">
-            <h2 className="text-sm font-semibold text-indigo-900">
-              AI-refined spec (sent to developers)
-            </h2>
+          <div className="neon-border space-y-3 rounded-2xl p-5">
+            <h2 className="eyebrow">AI-refined spec (sent to developers)</h2>
             <textarea
               rows={8}
               value={refinedBrief}
               onChange={(e) => setRefinedBrief(e.target.value)}
-              className="mt-2 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none"
+              className="field"
             />
           </div>
         )}
 
         <div className="grid gap-4 sm:grid-cols-3">
-          <label className="flex flex-col gap-1 text-sm">
+          <label className="field-label">
             Budget (USD) *
             <input
               required
@@ -132,10 +147,10 @@ export default function NewRequestPage() {
               step="1"
               value={budgetUsd}
               onChange={(e) => setBudgetUsd(e.target.value)}
-              className="rounded-md border border-slate-300 bg-white px-3 py-2 focus:border-indigo-500 focus:outline-none"
+              className="field"
             />
           </label>
-          <label className="flex flex-col gap-1 text-sm">
+          <label className="field-label">
             Deadline (days) *
             <input
               required
@@ -144,15 +159,15 @@ export default function NewRequestPage() {
               max="365"
               value={deadlineDays}
               onChange={(e) => setDeadlineDays(e.target.value)}
-              className="rounded-md border border-slate-300 bg-white px-3 py-2 focus:border-indigo-500 focus:outline-none"
+              className="field"
             />
           </label>
-          <label className="flex flex-col gap-1 text-sm">
+          <label className="field-label">
             Category
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              className="rounded-md border border-slate-300 bg-white px-3 py-2 focus:border-indigo-500 focus:outline-none"
+              className="field"
             >
               {[
                 "Productivity",
@@ -171,23 +186,17 @@ export default function NewRequestPage() {
         </div>
 
         {status && (
-          <p
-            className={`rounded-md px-3 py-2 text-sm ${
-              isError ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-700"
-            }`}
-          >
+          <p className={isError ? "alert-error" : "alert-success"}>
             {status.slice(status.indexOf(":") + 1)}
           </p>
         )}
 
-        <button
-          type="submit"
-          disabled={busy !== null}
-          className="w-full rounded-md bg-indigo-600 px-4 py-3 font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
-        >
-          {busy === "submit" ? "Posting…" : "Post request"}
+        <button type="submit" disabled={busy !== null} className="btn-primary w-full !py-3.5">
+          {busy === "submit" ? "Posting…" : "Post request →"}
         </button>
       </form>
+      </Reveal>
     </div>
+    </PageTransition>
   );
 }

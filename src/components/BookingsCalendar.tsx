@@ -27,10 +27,15 @@ export function BookingsCalendar({ events }: { events: BookingEvent[] }) {
       try {
         // Bryntum is browser-only — dynamic import keeps SSR safe.
         const mod = await import("@bryntum/calendar-trial");
-        // Theme CSS — loaded once alongside the widget.
-        await import("@bryntum/calendar-trial/calendar.css" as string).catch(
-          () => {},
-        );
+        // Bryntum needs three style sheets: structural CSS, exactly one theme
+        // (the dark "svalbard" theme matches our cosmic UI) and FontAwesome
+        // for its icons. Loaded once alongside the widget.
+        await Promise.all([
+          import("@bryntum/calendar-trial/calendar.css" as string),
+          import("@bryntum/calendar-trial/svalbard-dark.css" as string),
+          import("@bryntum/calendar-trial/fontawesome/css/fontawesome.css" as string),
+          import("@bryntum/calendar-trial/fontawesome/css/solid.css" as string),
+        ]).catch(() => {});
         if (destroyed || !ref.current) return;
         calendar = new mod.Calendar({
           appendTo: ref.current,
@@ -59,9 +64,9 @@ export function BookingsCalendar({ events }: { events: BookingEvent[] }) {
     // Honest fallback if the Bryntum bundle can't load — still show real data.
     return (
       <ul className="space-y-2 text-sm">
-        {events.length === 0 && <li className="text-slate-500">No demos booked.</li>}
+        {events.length === 0 && <li className="text-dim">No demos booked.</li>}
         {events.map((e) => (
-          <li key={e.id} className="rounded-md border border-slate-200 p-3">
+          <li key={e.id} className="rounded-xl border border-white/10 bg-white/[0.03] p-3 text-white/80">
             <strong>{e.name}</strong> —{" "}
             {new Date(e.startDate).toLocaleString()}
           </li>
@@ -70,5 +75,7 @@ export function BookingsCalendar({ events }: { events: BookingEvent[] }) {
     );
   }
 
-  return <div ref={ref} className="w-full" />;
+  // `bryntum-host` lets globals.css blend the calendar into the glass panel;
+  // data-lenis-prevent keeps wheel scrolling inside the calendar native.
+  return <div ref={ref} className="bryntum-host w-full overflow-hidden rounded-xl" data-lenis-prevent />;
 }

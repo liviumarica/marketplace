@@ -7,10 +7,16 @@
  * listing details, creates real PayPal purchase orders (with the commission
  * split) and can issue real PayPal invoices. Tool calls and their results
  * are rendered transparently in the stream.
+ *
+ * Design: a futuristic "agent console" — neon-bordered glass terminal with
+ * a sweeping scan-line, an animated AI avatar, gradient user bubbles,
+ * terminal-style tool-call chips and animated typing dots.
  */
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
+import { PageTransition } from "@/components/fx/PageTransition";
 
 const SUGGESTIONS = [
   "Find me an invoicing app under $300",
@@ -25,6 +31,13 @@ export default function ChatPage() {
   });
   const [input, setInput] = useState("");
   const busy = status === "submitted" || status === "streaming";
+  const streamRef = useRef<HTMLDivElement>(null);
+
+  // Keep the newest message in view as the agent streams.
+  useEffect(() => {
+    const el = streamRef.current;
+    if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
+  }, [messages, busy]);
 
   function submit(text: string) {
     if (!text.trim() || busy) return;
@@ -33,126 +46,175 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="mx-auto flex h-[calc(100vh-8.5rem)] max-w-3xl flex-col px-4 py-6">
-      <div className="mb-4">
-        <h1 className="text-2xl font-bold">AI Shopping Agent</h1>
-        <p className="text-sm text-slate-600">
-          Searches the marketplace, compares apps, and creates real PayPal
-          orders &amp; invoices — agentic commerce, live.
-        </p>
-      </div>
-
-      {/* Message stream */}
-      <div className="flex-1 space-y-4 overflow-y-auto rounded-xl border border-slate-200 bg-white p-4">
-        {messages.length === 0 && (
-          <div className="text-sm text-slate-500">
-            <p>Ask me anything — for example:</p>
-            <div className="mt-3 flex flex-wrap gap-2">
-              {SUGGESTIONS.map((s) => (
-                <button
-                  key={s}
-                  onClick={() => submit(s)}
-                  className="rounded-full border border-indigo-200 px-3 py-1.5 text-indigo-700 hover:bg-indigo-50"
-                >
-                  {s}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {messages.map((m) => (
-          <div
-            key={m.id}
-            className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
-          >
-            <div
-              className={`max-w-[85%] rounded-xl px-4 py-3 text-sm ${
-                m.role === "user"
-                  ? "bg-indigo-600 text-white"
-                  : "bg-slate-100 text-slate-800"
-              }`}
-            >
-              {m.parts.map((part, i) => {
-                // Plain text content
-                if (part.type === "text") {
-                  return (
-                    <span key={i} className="whitespace-pre-wrap">
-                      {part.text}
-                    </span>
-                  );
-                }
-                // Tool invocations — show them transparently so judges see
-                // the agent making REAL calls.
-                if (part.type.startsWith("tool-")) {
-                  const p = part as unknown as {
-                    toolName?: string;
-                    type: string;
-                    state?: string;
-                    output?: unknown;
-                  };
-                  const name = p.toolName ?? p.type.replace("tool-", "");
-                  const done = p.state === "output-available";
-                  return (
-                    <div
-                      key={i}
-                      className="my-1 rounded-md border border-slate-300 bg-white px-2 py-1 font-mono text-xs text-slate-600"
-                    >
-                      {done ? "✓" : "⏳"} {name}
-                      {done && p.output != null && (
-                        <details className="mt-1">
-                          <summary className="cursor-pointer text-indigo-600">
-                            result
-                          </summary>
-                          <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap">
-                            {JSON.stringify(p.output, null, 2).slice(0, 1500)}
-                          </pre>
-                        </details>
-                      )}
-                    </div>
-                  );
-                }
-                return null;
-              })}
-            </div>
-          </div>
-        ))}
-
-        {busy && (
-          <div className="flex items-center gap-2 text-xs text-slate-400">
-            <span className="h-3 w-3 animate-spin rounded-full border border-indigo-400 border-t-transparent" />
-            Agent is working…
-          </div>
-        )}
-        {error && (
-          <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
-            {error.message}
-          </p>
-        )}
-      </div>
-
-      {/* Input */}
-      <form
-        onSubmit={(e) => {
-          e.preventDefault();
-          submit(input);
-        }}
-        className="mt-4 flex gap-2"
-      >
-        <input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="e.g. Find a SaaS for tracking expenses under $500…"
-          className="flex-1 rounded-lg border border-slate-300 px-4 py-2.5 text-sm focus:border-indigo-500 focus:outline-none"
-        />
-        <button
-          type="submit"
-          disabled={busy || !input.trim()}
-          className="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+    <PageTransition>
+      <div className="mx-auto flex h-[calc(100svh-7rem)] max-w-4xl flex-col px-4 pb-6">
+        {/* Header with animated AI avatar */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+          className="mb-5 flex items-center gap-4"
         >
-          Send
-        </button>
-      </form>
-    </div>
+          <div className="relative flex h-14 w-14 shrink-0 items-center justify-center">
+            {/* Pulsing halo rings around the agent orb. */}
+            <span className="animate-pulse-ring absolute inset-0 rounded-full bg-violet-500/40" />
+            <span className="animate-pulse-ring absolute inset-0 rounded-full bg-cyan-400/30 [animation-delay:1s]" />
+            <span
+              className="relative h-11 w-11 rounded-full"
+              style={{
+                background: "radial-gradient(circle at 35% 30%, #e0e7ff, #8b5cf6 45%, #0891b2 80%)",
+                boxShadow: "0 0 30px rgba(139,92,246,0.8)",
+              }}
+            />
+          </div>
+          <div>
+            <p className="eyebrow">Agentic commerce · live</p>
+            <h1 className="mt-1 text-3xl font-bold text-white">
+              AI Shopping <span className="text-gradient">Agent</span>
+            </h1>
+            <p className="text-muted text-sm">
+              Searches the marketplace, compares apps, and creates real PayPal
+              orders &amp; invoices.
+            </p>
+          </div>
+        </motion.div>
+
+        {/* Message stream — the console */}
+        <div className="neon-border relative flex-1 overflow-hidden rounded-3xl">
+          {/* Sweeping scan-line for the "terminal" vibe. */}
+          <div aria-hidden className="pointer-events-none absolute inset-0 overflow-hidden">
+            <div className="h-1/4 w-full animate-[scan_6s_linear_infinite] bg-gradient-to-b from-transparent via-cyan-300/[0.04] to-transparent" />
+          </div>
+          <div aria-hidden className="dot-bg pointer-events-none absolute inset-0 opacity-30" />
+
+          <div
+            ref={streamRef}
+            data-lenis-prevent
+            className="relative h-full space-y-4 overflow-y-auto p-5"
+          >
+            {messages.length === 0 && (
+              <div className="flex h-full flex-col items-center justify-center text-center">
+                <p className="text-muted text-sm">Ask me anything — for example:</p>
+                <div className="mt-5 flex max-w-xl flex-wrap justify-center gap-2">
+                  {SUGGESTIONS.map((s, i) => (
+                    <motion.button
+                      key={s}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.3 + i * 0.08 }}
+                      onClick={() => submit(s)}
+                      className="btn-ghost !rounded-full !px-4 !py-2 !text-xs"
+                    >
+                      {s}
+                    </motion.button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <AnimatePresence initial={false}>
+              {messages.map((m) => (
+                <motion.div
+                  key={m.id}
+                  layout="position"
+                  initial={{ opacity: 0, y: 16, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+                  className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
+                >
+                  <div
+                    className={`max-w-[85%] rounded-2xl px-4 py-3 text-sm ${
+                      m.role === "user"
+                        ? "bg-gradient-to-br from-violet-600 to-cyan-600 text-white shadow-[0_10px_30px_-10px_rgba(139,92,246,0.9)]"
+                        : "glass text-white/90"
+                    }`}
+                  >
+                    {m.parts.map((part, i) => {
+                      // Plain text content
+                      if (part.type === "text") {
+                        return (
+                          <span key={i} className="whitespace-pre-wrap">
+                            {part.text}
+                          </span>
+                        );
+                      }
+                      // Tool invocations — show them transparently so judges see
+                      // the agent making REAL calls.
+                      if (part.type.startsWith("tool-")) {
+                        const p = part as unknown as {
+                          toolName?: string;
+                          type: string;
+                          state?: string;
+                          output?: unknown;
+                        };
+                        const name = p.toolName ?? p.type.replace("tool-", "");
+                        const done = p.state === "output-available";
+                        return (
+                          <div
+                            key={i}
+                            className="my-2 rounded-xl border border-cyan-300/20 bg-black/40 px-3 py-2 font-mono text-xs text-cyan-200"
+                          >
+                            <span className="flex items-center gap-2">
+                              {done ? (
+                                <span className="text-emerald-300">✓</span>
+                              ) : (
+                                <span className="h-3 w-3 animate-spin rounded-full border border-cyan-300 border-t-transparent" />
+                              )}
+                              <span className="text-white/40">$</span> {name}
+                            </span>
+                            {done && p.output != null && (
+                              <details className="mt-1">
+                                <summary className="cursor-pointer text-violet-300 hover:text-violet-200">
+                                  result
+                                </summary>
+                                <pre className="mt-1 max-h-40 overflow-auto whitespace-pre-wrap text-white/60" data-lenis-prevent>
+                                  {JSON.stringify(p.output, null, 2).slice(0, 1500)}
+                                </pre>
+                              </details>
+                            )}
+                          </div>
+                        );
+                      }
+                      return null;
+                    })}
+                  </div>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+
+            {busy && (
+              <div className="flex items-center gap-2 text-xs text-white/50">
+                <span className="flex gap-1">
+                  <span className="typing-dot h-1.5 w-1.5 rounded-full bg-cyan-300" />
+                  <span className="typing-dot h-1.5 w-1.5 rounded-full bg-violet-300 [animation-delay:0.15s]" />
+                  <span className="typing-dot h-1.5 w-1.5 rounded-full bg-fuchsia-300 [animation-delay:0.3s]" />
+                </span>
+                Agent is working…
+              </div>
+            )}
+            {error && <p className="alert-error">{error.message}</p>}
+          </div>
+        </div>
+
+        {/* Input */}
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            submit(input);
+          }}
+          className="glass-strong mt-4 flex gap-2 rounded-2xl p-1.5"
+        >
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            placeholder="e.g. Find a SaaS for tracking expenses under $500…"
+            className="flex-1 bg-transparent px-4 py-2.5 text-sm text-white placeholder:text-white/35 focus:outline-none"
+          />
+          <button type="submit" disabled={busy || !input.trim()} className="btn-primary !rounded-xl">
+            Send ↵
+          </button>
+        </form>
+      </div>
+    </PageTransition>
   );
 }

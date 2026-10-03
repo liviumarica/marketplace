@@ -28,6 +28,8 @@ export function BuyWithPayPal({
 
   return (
     <div>
+      {/* PayPal's iframe buttons sit on a light card for maximum legibility. */}
+      <div className="paypal-frame">
       <PayPalScriptProvider
         options={{
           clientId: paypalClientId,
@@ -67,12 +69,9 @@ export function BuyWithPayPal({
           onError={(err) => setError(String(err))}
         />
       </PayPalScriptProvider>
-      {error && (
-        <p className="mt-2 rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">
-          {error}
-        </p>
-      )}
-      <p className="mt-2 text-center text-xs text-slate-500">
+      </div>
+      {error && <p className="alert-error mt-3">{error}</p>}
+      <p className="text-dim mt-3 text-center text-xs">
         {priceLabel} — payment splits automatically: seller + platform fee
       </p>
     </div>

@@ -10,6 +10,11 @@ import { getSessionUser } from "@/lib/auth";
 import { formatUsd } from "@/lib/money";
 import { SalesGrid, type OrderRow } from "@/components/SalesGrid";
 import { BookingsCalendar } from "@/components/BookingsCalendar";
+import { PageTransition } from "@/components/fx/PageTransition";
+import { PageHeader } from "@/components/fx/PageHeader";
+import { Reveal } from "@/components/fx/Reveal";
+import { SpotlightCard } from "@/components/fx/SpotlightCard";
+import { AnimatedCounter } from "@/components/fx/AnimatedCounter";
 
 export default async function DashboardPage() {
   const user = await getSessionUser();
@@ -97,135 +102,205 @@ export default async function DashboardPage() {
   }));
 
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold">
-          {isAdmin ? "Platform admin dashboard" : "Seller dashboard"}
-        </h1>
-        <Link
-          href="/listings/new"
-          className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-        >
-          + New listing
-        </Link>
-      </div>
-
-      {/* Stat cards */}
-      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          label={isAdmin ? "Platform fees collected" : "Revenue"}
-          value={formatUsd(isAdmin ? feesCollectedCents : revenueCents)}
-        />
-        <StatCard
-          label="Sales"
-          value={String(sales.filter((o) => o.status === "PAID").length)}
-        />
-        <StatCard label="Active listings" value={String(myListings.filter((l) => l.status === "ACTIVE").length)} />
-        <StatCard label="Spent (purchases)" value={formatUsd(spentCents)} />
-      </div>
-
-      {/* Transactions grid */}
-      <section className="mt-8">
-        <h2 className="mb-3 font-semibold">
-          {isAdmin ? "All marketplace transactions" : "Your sales"}
-        </h2>
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <SalesGrid rows={saleRows} />
-        </div>
-      </section>
-
-      {purchases.length > 0 && (
-        <section className="mt-8">
-          <h2 className="mb-3 font-semibold">Your purchases</h2>
-          <div className="rounded-xl border border-slate-200 bg-white p-4">
-            <SalesGrid rows={purchaseRows} />
-          </div>
-        </section>
-      )}
-
-      {/* My listings */}
-      <section className="mt-8">
-        <h2 className="mb-3 font-semibold">Your listings</h2>
-        {myListings.length === 0 ? (
-          <p className="rounded-xl border border-dashed border-slate-300 bg-white p-8 text-center text-sm text-slate-500">
-            No listings yet —{" "}
-            <Link href="/listings/new" className="text-indigo-600 underline">
-              sell your first app
+    <PageTransition>
+      <div className="mx-auto max-w-6xl px-4 py-10">
+        <PageHeader
+          eyebrow={isAdmin ? "Admin control room" : "Control room"}
+          title={isAdmin ? "Platform admin dashboard" : "Seller dashboard"}
+          subtitle={`Welcome back, ${user.name}. Everything below is live data.`}
+          action={
+            <Link href="/listings/new" className="btn-primary">
+              + New listing
             </Link>
-            .
-          </p>
-        ) : (
-          <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
-            <table className="w-full text-sm">
-              <thead className="bg-slate-50 text-left text-xs text-slate-500">
-                <tr>
-                  <th className="px-4 py-2">Title</th>
-                  <th className="px-4 py-2">Price</th>
-                  <th className="px-4 py-2">Status</th>
-                  <th className="px-4 py-2">AI verification</th>
-                  <th className="px-4 py-2">Views</th>
-                </tr>
-              </thead>
-              <tbody>
-                {myListings.map((l) => (
-                  <tr key={l.id} className="border-t border-slate-100">
-                    <td className="px-4 py-2">
-                      <Link
-                        href={`/listings/${l.id}`}
-                        className="text-indigo-700 hover:underline"
-                      >
-                        {l.title}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-2">{formatUsd(l.priceCents)}</td>
-                    <td className="px-4 py-2">{l.status}</td>
-                    <td className="px-4 py-2">{l.verificationStatus}</td>
-                    <td className="px-4 py-2">{l.views}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </section>
+          }
+        />
 
-      {/* Custom orders */}
-      {myCustomOrders.length > 0 && (
-        <section className="mt-8">
-          <h2 className="mb-3 font-semibold">Custom order escrows</h2>
-          <div className="space-y-2">
-            {myCustomOrders.map((o) => (
-              <Link
-                key={o.id}
-                href={`/custom-orders/${o.id}`}
-                className="flex items-center justify-between rounded-lg border border-slate-200 bg-white px-4 py-3 text-sm hover:border-indigo-300"
-              >
-                <span>{o.request.title}</span>
-                <span className="text-slate-500">
-                  {formatUsd(o.amountCents)} · {o.status}
-                </span>
-              </Link>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Demo bookings — Bryntum calendar */}
-      <section className="mt-8">
-        <h2 className="mb-3 font-semibold">Demo bookings</h2>
-        <div className="rounded-xl border border-slate-200 bg-white p-4">
-          <BookingsCalendar events={calendarEvents} />
+        {/* Stat cards — values count up from real aggregates */}
+        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard
+            label={isAdmin ? "Platform fees collected" : "Revenue"}
+            value={isAdmin ? feesCollectedCents : revenueCents}
+            format="usd"
+            glow="139,92,246"
+            delay={0}
+          />
+          <StatCard
+            label="Sales"
+            value={sales.filter((o) => o.status === "PAID").length}
+            glow="34,211,238"
+            delay={0.08}
+          />
+          <StatCard
+            label="Active listings"
+            value={myListings.filter((l) => l.status === "ACTIVE").length}
+            glow="232,121,249"
+            delay={0.16}
+          />
+          <StatCard
+            label="Spent (purchases)"
+            value={spentCents}
+            format="usd"
+            glow="163,230,53"
+            delay={0.24}
+          />
         </div>
-      </section>
-    </div>
+
+        {/* Transactions grid */}
+        <Reveal>
+          <section className="mt-12">
+            <h2 className="mb-4 text-xl font-semibold text-white">
+              {isAdmin ? "All marketplace transactions" : "Your sales"}
+            </h2>
+            <div className="glass rounded-2xl p-3">
+              <SalesGrid rows={saleRows} />
+            </div>
+          </section>
+        </Reveal>
+
+        {purchases.length > 0 && (
+          <Reveal>
+            <section className="mt-12">
+              <h2 className="mb-4 text-xl font-semibold text-white">Your purchases</h2>
+              <div className="glass rounded-2xl p-3">
+                <SalesGrid rows={purchaseRows} />
+              </div>
+            </section>
+          </Reveal>
+        )}
+
+        {/* My listings */}
+        <Reveal>
+          <section className="mt-12">
+            <h2 className="mb-4 text-xl font-semibold text-white">Your listings</h2>
+            {myListings.length === 0 ? (
+              <p className="glass text-muted rounded-2xl p-10 text-center text-sm">
+                No listings yet —{" "}
+                <Link href="/listings/new" className="link-neon">
+                  sell your first app
+                </Link>
+                .
+              </p>
+            ) : (
+              <div className="glass overflow-hidden rounded-2xl">
+                <table className="table-neon w-full text-sm">
+                  <thead className="text-left">
+                    <tr>
+                      <th className="px-5 py-3">Title</th>
+                      <th className="px-5 py-3">Price</th>
+                      <th className="px-5 py-3">Status</th>
+                      <th className="px-5 py-3">AI verification</th>
+                      <th className="px-5 py-3">Views</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {myListings.map((l) => (
+                      <tr key={l.id}>
+                        <td className="px-5 py-3">
+                          <Link href={`/listings/${l.id}`} className="font-medium text-white hover:text-cyan-200">
+                            {l.title}
+                          </Link>
+                        </td>
+                        <td className="px-5 py-3 font-mono text-white/80">{formatUsd(l.priceCents)}</td>
+                        <td className="px-5 py-3">
+                          <span className={`chip ${l.status === "ACTIVE" ? "chip-green" : ""}`}>{l.status}</span>
+                        </td>
+                        <td className="px-5 py-3">
+                          <span
+                            className={`chip ${
+                              l.verificationStatus === "PASSED"
+                                ? "chip-green"
+                                : l.verificationStatus === "RUNNING"
+                                  ? "chip-amber"
+                                  : l.verificationStatus === "FAILED"
+                                    ? "chip-rose"
+                                    : ""
+                            }`}
+                          >
+                            {l.verificationStatus}
+                          </span>
+                        </td>
+                        <td className="px-5 py-3 font-mono text-white/70">{l.views}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+        </Reveal>
+
+        {/* Custom orders */}
+        {myCustomOrders.length > 0 && (
+          <Reveal>
+            <section className="mt-12">
+              <h2 className="mb-4 text-xl font-semibold text-white">Custom order escrows</h2>
+              <div className="space-y-2">
+                {myCustomOrders.map((o) => (
+                  <Link
+                    key={o.id}
+                    href={`/custom-orders/${o.id}`}
+                    className="glass group flex items-center justify-between rounded-xl px-5 py-4 text-sm transition hover:border-cyan-300/40"
+                  >
+                    <span className="font-medium text-white group-hover:text-cyan-200">{o.request.title}</span>
+                    <span className="flex items-center gap-3">
+                      <span className="font-mono text-white/80">{formatUsd(o.amountCents)}</span>
+                      <span className="chip">{o.status}</span>
+                      <span aria-hidden className="text-white/40 transition group-hover:translate-x-1 group-hover:text-cyan-300">
+                        →
+                      </span>
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          </Reveal>
+        )}
+
+        {/* Demo bookings — Bryntum calendar */}
+        <Reveal>
+          <section className="mt-12">
+            <h2 className="mb-4 text-xl font-semibold text-white">Demo bookings</h2>
+            <div className="glass rounded-2xl p-3">
+              <BookingsCalendar events={calendarEvents} />
+            </div>
+          </section>
+        </Reveal>
+      </div>
+    </PageTransition>
   );
 }
 
-function StatCard({ label, value }: { label: string; value: string }) {
+/** Glass KPI tile with a glowing accent and an animated count-up value. */
+function StatCard({
+  label,
+  value,
+  format = "int",
+  glow,
+  delay,
+}: {
+  label: string;
+  value: number;
+  format?: "int" | "usd";
+  glow: string;
+  delay: number;
+}) {
   return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4">
-      <div className="text-xs text-slate-500">{label}</div>
-      <div className="mt-1 text-2xl font-bold">{value}</div>
-    </div>
+    <Reveal delay={delay}>
+      <SpotlightCard glow={glow} tilt={5}>
+        <div className="relative overflow-hidden p-6">
+          <div
+            aria-hidden
+            className="absolute -right-10 -top-10 h-28 w-28 rounded-full blur-2xl"
+            style={{ background: `rgba(${glow},0.35)` }}
+          />
+          <div className="text-dim relative text-xs uppercase tracking-[0.16em]">{label}</div>
+          <AnimatedCounter
+            value={value}
+            format={format}
+            className="relative mt-3 block font-[family-name:var(--font-display)] text-3xl font-bold text-white"
+          />
+        </div>
+      </SpotlightCard>
+    </Reveal>
   );
 }

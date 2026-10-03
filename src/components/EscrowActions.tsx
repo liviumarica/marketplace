@@ -4,9 +4,12 @@
  * EscrowActions — the buyer's decision buttons on a delivered custom order:
  * accept (capture the authorization, funds released to developer) or
  * dispute (void the authorization, funds returned to the buyer).
+ *
+ * The dispute form expands/collapses with a height animation.
  */
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { AnimatePresence, motion } from "motion/react";
 
 export function EscrowActions({ orderId }: { orderId: string }) {
   const router = useRouter();
@@ -50,52 +53,59 @@ export function EscrowActions({ orderId }: { orderId: string }) {
   const isError = status?.startsWith("error:");
 
   return (
-    <section className="mt-6 rounded-xl border border-slate-200 bg-white p-5">
-      <h2 className="font-semibold">Review the delivery</h2>
-      <p className="mt-1 text-sm text-slate-600">
+    <section className="neon-border mt-6 rounded-2xl p-7">
+      <p className="eyebrow">Buyer decision</p>
+      <h2 className="mt-2 text-xl font-semibold text-white">Review the delivery</h2>
+      <p className="text-muted mt-2 text-sm">
         Accepting captures the escrowed PayPal funds — the developer gets
         paid. Disputing voids the authorization — your money comes back.
       </p>
-      <div className="mt-4 flex gap-3">
+      <div className="mt-5 flex flex-wrap gap-3">
         <button
           onClick={accept}
           disabled={loading !== null}
-          className="flex-1 rounded-md bg-emerald-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+          className="btn-ghost btn-success flex-1"
         >
-          {loading === "accept" ? "Releasing…" : "Accept & release funds"}
+          {loading === "accept" ? "Releasing…" : "✓ Accept & release funds"}
         </button>
         <button
           onClick={() => setShowDispute((v) => !v)}
           disabled={loading !== null}
-          className="rounded-md border border-red-300 px-4 py-2.5 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
+          className="btn-ghost btn-danger"
         >
           Dispute
         </button>
       </div>
-      {showDispute && (
-        <div className="mt-3 space-y-2">
-          <textarea
-            rows={2}
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            placeholder="Why are you disputing? (min 5 chars)"
-            className="w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-red-400 focus:outline-none"
-          />
-          <button
-            onClick={dispute}
-            disabled={reason.length < 5 || loading !== null}
-            className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+      <AnimatePresence initial={false}>
+        {showDispute && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.35, ease: [0.16, 1, 0.3, 1] }}
+            className="overflow-hidden"
           >
-            {loading === "dispute" ? "Voiding…" : "Confirm dispute — refund me"}
-          </button>
-        </div>
-      )}
+            <div className="mt-4 space-y-3">
+              <textarea
+                rows={2}
+                value={reason}
+                onChange={(e) => setReason(e.target.value)}
+                placeholder="Why are you disputing? (min 5 chars)"
+                className="field"
+              />
+              <button
+                onClick={dispute}
+                disabled={reason.length < 5 || loading !== null}
+                className="btn-ghost btn-danger"
+              >
+                {loading === "dispute" ? "Voiding…" : "Confirm dispute — refund me"}
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       {status && (
-        <p
-          className={`mt-3 rounded-md px-3 py-2 text-sm ${
-            isError ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-700"
-          }`}
-        >
+        <p className={`mt-4 ${isError ? "alert-error" : "alert-success"}`}>
           {status.slice(status.indexOf(":") + 1)}
         </p>
       )}

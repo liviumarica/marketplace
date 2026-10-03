@@ -41,11 +41,12 @@ export function OfferForm({ requestId }: { requestId: string }) {
   const isError = status?.startsWith("error:");
 
   return (
-    <section className="rounded-xl border border-slate-200 bg-white p-6">
-      <h2 className="font-semibold">Make an offer</h2>
+    <section className="neon-border rounded-2xl p-7">
+      <p className="eyebrow">For developers</p>
+      <h2 className="mt-2 text-xl font-semibold text-white">Make an offer</h2>
       <form onSubmit={submit} className="mt-3 space-y-3">
         <div className="grid gap-3 sm:grid-cols-2">
-          <label className="flex flex-col gap-1 text-sm">
+          <label className="field-label">
             Your price (USD)
             <input
               required
@@ -54,10 +55,10 @@ export function OfferForm({ requestId }: { requestId: string }) {
               step="1"
               value={priceUsd}
               onChange={(e) => setPriceUsd(e.target.value)}
-              className="rounded-md border border-slate-300 px-3 py-2 focus:border-indigo-500 focus:outline-none"
+              className="field"
             />
           </label>
-          <label className="flex flex-col gap-1 text-sm">
+          <label className="field-label">
             Delivery (days)
             <input
               required
@@ -65,11 +66,11 @@ export function OfferForm({ requestId }: { requestId: string }) {
               min="1"
               value={days}
               onChange={(e) => setDays(e.target.value)}
-              className="rounded-md border border-slate-300 px-3 py-2 focus:border-indigo-500 focus:outline-none"
+              className="field"
             />
           </label>
         </div>
-        <label className="flex flex-col gap-1 text-sm">
+        <label className="field-label">
           Pitch — how you&apos;ll build it
           <textarea
             required
@@ -77,23 +78,15 @@ export function OfferForm({ requestId }: { requestId: string }) {
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             placeholder="e.g. I'll build it with Next.js + AI scaffolding, deliver a deployed demo + repo…"
-            className="rounded-md border border-slate-300 px-3 py-2 focus:border-indigo-500 focus:outline-none"
+            className="field"
           />
         </label>
         {status && (
-          <p
-            className={`rounded-md px-3 py-2 text-sm ${
-              isError ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-700"
-            }`}
-          >
+          <p className={isError ? "alert-error" : "alert-success"}>
             {status.slice(status.indexOf(":") + 1)}
           </p>
         )}
-        <button
-          type="submit"
-          disabled={loading}
-          className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
-        >
+        <button type="submit" disabled={loading} className="btn-primary">
           {loading ? "Sending…" : "Send offer"}
         </button>
       </form>
