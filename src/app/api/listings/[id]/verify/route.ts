@@ -4,10 +4,12 @@
  * Returns immediately — the run executes in the background and the listing
  * page reflects progress on reload.
  */
-import { NextResponse } from "next/server";
+import { after, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
 import { runListingVerification } from "@/lib/kernel";
+
+export const maxDuration = 300;
 
 export async function POST(
   _req: Request,
@@ -33,8 +35,8 @@ export async function POST(
     return NextResponse.json({ error: "Verification already running" }, { status: 409 });
   }
 
-  // Fire-and-forget: the run takes ~30-60s in the KERNEL cloud browser.
-  void runListingVerification(id);
+  // Keep the serverless invocation alive until verification finishes.
+  after(() => runListingVerification(id));
 
   return NextResponse.json({ started: true });
 }

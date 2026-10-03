@@ -13,7 +13,13 @@ import { env } from "@/lib/env";
 
 interface LegacyTool {
   description?: string;
-  parameters: ZodTypeAny;
+  /**
+   * The toolkit builds tools with ai@4 (`parameters`). We override its `ai`
+   * dependency to v5 for security fixes, which may expose `inputSchema`
+   * instead — accept either key so the wrap keeps working.
+   */
+  parameters?: ZodTypeAny;
+  inputSchema?: ZodTypeAny;
   execute: (args: unknown) => Promise<unknown>;
 }
 
@@ -51,10 +57,14 @@ export function paypalAgentTools(): Record<string, Tool> {
   for (const [name, t] of Object.entries(
     toolkit.getTools() as unknown as Record<string, LegacyTool>,
   )) {
+    const schema = t.parameters ?? t.inputSchema;
+    // Every toolkit tool carries a zod schema; skip defensively if one ever
+    // ships without it so we never register a schema-less tool.
+    if (!schema) continue;
     wrapped[name] = tool({
       description: t.description ?? `PayPal ${name}`,
-      inputSchema: t.parameters,
-      execute: async (args) => t.execute(args),
+      inputSchema: schema,
+      execute: async (args: unknown) => t.execute(args),
     }) as unknown as Tool;
   }
   _tools = wrapped;

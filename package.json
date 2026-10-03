@@ -4,15 +4,18 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "prisma generate && next build",
+    "postinstall": "prisma generate",
+    "vercel-build": "node scripts/check-vercel-env.mjs && prisma generate && prisma migrate deploy && next build",
     "start": "next start",
     "lint": "eslint",
     "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
     "db:reset": "prisma migrate reset --force && tsx prisma/seed.ts"
   },
-  "prisma": {
-    "seed": "tsx prisma/seed.ts"
+  "engines": {
+    "node": "24.x"
   },
   "dependencies": {
     "@ai-sdk/openai": "^4.0.83",
@@ -53,5 +56,14 @@
     "tailwindcss": "^4",
     "tsx": "^4.23.15",
     "typescript": "^5"
+  },
+  "overrides": {
+    "@paypal/agent-toolkit": {
+      "ai": "5.0.271",
+      "mathjs": "15.2.0",
+      "undici": "7.30.0"
+    },
+    "@langchain/core": "1.2.14",
+    "deepmerge-ts": "8.0.2"
   }
 }

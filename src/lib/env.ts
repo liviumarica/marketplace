@@ -20,13 +20,14 @@ function required(name: string): string {
 }
 
 export const env = {
-  /** SQLite connection string used by Prisma (file:./dev.db locally). */
+  /** SQLite locally, hosted PostgreSQL on Vercel. */
   get databaseUrl() {
     return process.env.DATABASE_URL ?? "file:./dev.db";
   },
 
   /** Secret used to sign the JWT session cookie. */
   get authSecret() {
+    if (process.env.NODE_ENV === "production") return required("AUTH_SECRET");
     return process.env.AUTH_SECRET ?? "dev-only-insecure-secret-change-me";
   },
 
@@ -99,6 +100,7 @@ export const env = {
 
   /** Public base URL of this deployment (used for webhook + PayPal return URLs). */
   get appUrl() {
-    return process.env.APP_URL ?? "http://localhost:3000";
+    return process.env.APP_URL ||
+      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
   },
 };

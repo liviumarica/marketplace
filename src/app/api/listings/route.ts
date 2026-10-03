@@ -4,12 +4,14 @@
  *  POST — create a new listing (seller role required). Starts as DRAFT;
  *         the AI verification agent promotes it to ACTIVE after a run.
  */
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
 import { runListingVerification } from "@/lib/kernel";
 import { indexListing } from "@/lib/elastic";
+
+export const maxDuration = 300;
 
 const createSchema = z.object({
   title: z.string().min(3),
@@ -105,11 +107,11 @@ export async function POST(req: NextRequest) {
   // A demo URL means the KERNEL verification agent can run — kick it off in
   // the background; the listing page shows progress and publishes on PASSED.
   if (listing.demoUrl) {
-    void runListingVerification(listing.id);
+    after(() => runListingVerification(listing.id));
   }
 
   // Index into Elasticsearch for semantic search (no-op if ES isn't running).
-  void indexListing(listing);
+  after(() => indexListing(listing));
 
   return NextResponse.json({ listingId: listing.id }, { status: 201 });
 }

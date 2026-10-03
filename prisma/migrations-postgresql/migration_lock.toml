@@ -1,0 +1,2 @@
+# PostgreSQL migrations are separate from the local SQLite history.
+provider = "postgresql"

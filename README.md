@@ -140,6 +140,70 @@ POST /api/channel3/benchmark                POST /api/bookings
 POST /api/agent/chat
 ```
 
+## Deploy to Vercel
+
+The app uses hosted **PostgreSQL** on Vercel and keeps **SQLite** for local
+development. `prisma.config.ts` selects the connector from `DATABASE_URL` and
+derives the PostgreSQL schema from the shared models. The two databases have
+separate migration histories; the SQLite data is not copied to PostgreSQL.
+
+1. Import `liviumarica/marketplace` into Vercel (framework: **Next.js**, root: `.`,
+   Node.js: **24.x**).
+2. Open the project's **Storage → Create Database** and connect a hosted
+   PostgreSQL provider, such as **Neon**. Use its pooled PostgreSQL connection
+   string as `DATABASE_URL`. For a provider that requires an unpooled migration
+   connection, also set `DIRECT_URL`.
+3. Add the environment variables below in **Settings → Environment Variables**.
+   Use a separate database/branch for Preview deployments, since each build
+   applies migrations to the database configured for that environment.
+
+| Variable | Value |
+|---|---|
+| `DATABASE_URL` | Hosted PostgreSQL URL; never `file:./dev.db` on Vercel |
+| `DIRECT_URL` | Optional direct PostgreSQL URL for migrations |
+| `AUTH_SECRET` | Random secret, at least 32 characters |
+| `PAYPAL_ENV` | `sandbox` for the hackathon/demo |
+| `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` | Sandbox REST app credentials |
+| `PAYPAL_PLATFORM_MERCHANT_ID` | Platform sandbox merchant ID |
+| `PAYPAL_SPLIT_MODE` | `payout` |
+| `PLATFORM_FEE_BPS` | `1000` |
+| `APP_URL` | Public app URL, e.g. `https://your-project.vercel.app` |
+| `OPENAI_API_KEY` | Required to use the AI features |
+
+Generate an authentication secret locally with:
+
+```bash
+node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
+```
+
+4. Deploy. `vercel.json` selects `npm run vercel-build`, which checks the DB/auth
+   configuration, generates Prisma Client, applies PostgreSQL migrations, and
+   builds Next.js. The default Next.js output settings can stay unchanged.
+   `APP_URL` falls back to Vercel's deployment URL when omitted; set it explicitly
+   for a stable production domain and PayPal return URLs.
+5. Optionally configure `PAYPAL_WEBHOOK_ID` with a PayPal webhook pointing at
+   `https://your-project.vercel.app/api/paypal/webhook`. Add the optional sponsor
+   keys from `.env.example` for verification, semantic search, and benchmarking.
+
+The deployment creates an empty database. For a **sandbox demo only**, set
+`DATABASE_URL` to the hosted database in your local shell, then run:
+
+```bash
+npx prisma generate
+npm run db:seed
+```
+
+The seed creates the public demo logins documented above, including an admin;
+do not seed those accounts into a live-payment marketplace. Afterwards, unset
+the shell override and run `npx prisma generate` to use local SQLite again.
+
+Background verification and Elasticsearch indexing use Next.js `after()`;
+the listing routes allow up to 300 seconds. Enable Vercel Fluid compute to
+support that duration on the selected plan.
+
+References: [Prisma on Vercel](https://docs.prisma.io/docs/orm/v6/prisma-client/deployment/serverless/deploy-to-vercel),
+[Vercel Postgres integrations](https://vercel.com/docs/postgres).
+
 ## Deploy to Render
 
 `New → Blueprint → this repo` — `render.yaml` provisions the web service; set the `sync:false` env vars in the dashboard. SQLite on instance disk is fine for a demo; for production point `DATABASE_URL` at a managed Postgres (`prisma migrate deploy` runs at boot).
