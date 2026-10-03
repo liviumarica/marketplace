@@ -20,57 +20,74 @@ async function main() {
   const passwordHash = await bcrypt.hash("password123", 10);
 
   // ---------------------------------------------------------------- users
+  // Real sandbox accounts (PayPal developer dashboard > Sandbox > Accounts):
+  //   platform/partner : sb-m9fs053148149@business.example.com  (owns the app)
+  //   seller           : sb-ws8bg53096423@business.example.com  (receives payouts)
+  //   buyer            : sb-roi4n53159859@personal.example.com  (pays at checkout)
+  // `update` syncs the PayPal fields so re-seeding picks up new credentials.
   const admin = await prisma.user.upsert({
     where: { email: "admin@agentbay.dev" },
-    update: {},
+    update: {
+      paypalEmail: "sb-m9fs053148149@business.example.com",
+      paypalMerchantId: process.env.PAYPAL_PLATFORM_MERCHANT_ID || null,
+    },
     create: {
       email: "admin@agentbay.dev",
       name: "AgentBay Admin",
       role: "ADMIN",
       passwordHash,
-      paypalEmail: "platform@business.example.com",
+      paypalEmail: "sb-m9fs053148149@business.example.com",
       paypalMerchantId: process.env.PAYPAL_PLATFORM_MERCHANT_ID || null,
     },
   });
 
   const alex = await prisma.user.upsert({
     where: { email: "alex@seller.dev" },
-    update: {},
+    update: {
+      paypalEmail: "sb-ws8bg53096423@business.example.com",
+      paypalMerchantId: process.env.PAYPAL_SELLER_MERCHANT_ID || null,
+    },
     create: {
       email: "alex@seller.dev",
       name: "Alex Popescu",
       role: "SELLER",
       passwordHash,
       bio: "Indie builder shipping AI-assisted SaaS tools.",
-      // NOTE: replace with your own sandbox business accounts for real payouts.
-      paypalEmail: "alex-business@paypal-sandbox.example.com",
-      paypalMerchantId: "SELLER1MERCHANTID",
+      // Real sandbox business account — payouts land in its dashboard.
+      paypalEmail: "sb-ws8bg53096423@business.example.com",
+      paypalMerchantId: process.env.PAYPAL_SELLER_MERCHANT_ID || null,
     },
   });
 
   const maria = await prisma.user.upsert({
     where: { email: "maria@seller.dev" },
-    update: {},
+    update: {
+      paypalEmail: "sb-ws8bg53096423@business.example.com",
+      paypalMerchantId: null,
+    },
     create: {
       email: "maria@seller.dev",
       name: "Maria Ionescu",
       role: "SELLER",
       passwordHash,
       bio: "Full-stack dev, builds niche B2B micro-SaaS with AI.",
-      paypalEmail: "maria-business@paypal-sandbox.example.com",
-      paypalMerchantId: "SELLER2MERCHANTID",
+      // Same sandbox business account — the demo only has one seller account.
+      paypalEmail: "sb-ws8bg53096423@business.example.com",
     },
   });
 
   const bob = await prisma.user.upsert({
     where: { email: "bob@buyer.dev" },
-    update: {},
+    update: {
+      paypalEmail: "sb-roi4n53159859@personal.example.com",
+    },
     create: {
       email: "bob@buyer.dev",
       name: "Bob Dumitru",
       role: "BUYER",
       passwordHash,
-      paypalEmail: "bob-personal@paypal-sandbox.example.com",
+      // Real sandbox personal account — used to approve payments.
+      paypalEmail: "sb-roi4n53159859@personal.example.com",
     },
   });
 
