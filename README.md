@@ -160,7 +160,7 @@ separate migration histories; the SQLite data is not copied to PostgreSQL.
 | Variable | Value |
 |---|---|
 | `DATABASE_URL` | Hosted PostgreSQL URL; never `file:./dev.db` on Vercel |
-| `DIRECT_URL` | Optional direct PostgreSQL URL for migrations |
+| `DIRECT_URL` | Optional direct PostgreSQL URL for migrations; Neon’s `DATABASE_URL_UNPOOLED` is used automatically when available |
 | `AUTH_SECRET` | Random secret, at least 32 characters |
 | `PAYPAL_ENV` | `sandbox` for the hackathon/demo |
 | `PAYPAL_CLIENT_ID`, `PAYPAL_CLIENT_SECRET` | Sandbox REST app credentials |

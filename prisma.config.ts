@@ -5,6 +5,7 @@ import { defineConfig } from "prisma/config";
 
 const databaseUrl = process.env.DATABASE_URL || "file:./dev.db";
 const isPostgres = /^postgres(ql)?:\/\//.test(databaseUrl);
+const directUrl = process.env.DIRECT_URL || process.env.DATABASE_URL_UNPOOLED;
 
 if (!isPostgres && !databaseUrl.startsWith("file:")) {
   throw new Error("DATABASE_URL must be a SQLite file: URL or a PostgreSQL URL.");
@@ -33,8 +34,8 @@ export default defineConfig({
   engine: "classic",
   datasource: {
     url: databaseUrl,
-    ...(isPostgres && process.env.DIRECT_URL
-      ? { directUrl: process.env.DIRECT_URL }
+    ...(isPostgres && directUrl
+      ? { directUrl }
       : {}),
   },
 });
