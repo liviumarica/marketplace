@@ -1,0 +1,49 @@
+# Render blueprint — deploys AgentBay as a single web service.
+# Dashboard: New > Blueprint > point at this repo. Set the env vars below
+# in the Render dashboard (marked sync:false so they are never committed).
+services:
+  - type: web
+    name: agentbay
+    runtime: node
+    plan: starter
+    buildCommand: npm ci && npx prisma generate && npm run build
+    # migrate is idempotent; the seed uses upserts, so re-running on each
+    # boot is safe and guarantees demo data exists for reviewers.
+    startCommand: npx prisma migrate deploy && npm run db:seed && npm run start
+    envVars:
+      - key: NODE_VERSION
+        value: "24"
+      # SQLite lives on the instance disk — fine for a hackathon demo; swap
+      # DATABASE_URL for a managed Postgres URL for anything serious.
+      - key: DATABASE_URL
+        value: "file:./dev.db"
+      - key: PAYPAL_ENV
+        value: sandbox
+      - key: PAYPAL_SPLIT_MODE
+        value: payout
+      - key: PLATFORM_FEE_BPS
+        value: "1000"
+      - key: OPENAI_MODEL
+        value: "gpt-4o-mini"
+      - key: APP_URL
+        sync: false # https://your-service.onrender.com
+      - key: AUTH_SECRET
+        generateValue: true
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+      - key: PAYPAL_PLATFORM_MERCHANT_ID
+        sync: false
+      - key: PAYPAL_WEBHOOK_ID
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: KERNEL_API_KEY
+        sync: false
+      - key: ELASTIC_URL
+        sync: false
+      - key: ELASTIC_API_KEY
+        sync: false
+      - key: CHANNEL3_API_KEY
+        sync: false

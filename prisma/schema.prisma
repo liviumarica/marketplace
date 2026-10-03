@@ -1,0 +1,226 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// =============================================================================
+// USERS & AUTH
+// A user can act as both buyer and seller — `role` only controls what UI and
+// admin surfaces they can reach. Sellers connect a PayPal sandbox merchant
+// account by pasting their merchant ID (production would use the Partner
+// Referrals onboarding flow — see README).
+// =============================================================================
+
+model User {
+  id           String  @id @default(cuid())
+  email        String  @unique
+  passwordHash String
+  name         String
+  // BUYER = can only purchase, SELLER = can also list apps & take custom work,
+  // ADMIN  = marketplace operator (sees every transaction + platform fees).
+  role    String  @default("BUYER")
+  // PayPal sandbox identity used for split payments and payouts.
+  paypalMerchantId String?
+  paypalEmail      String?
+  bio              String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  listings          Listing[]
+  purchases         Order[]          @relation("BuyerOrders")
+  sales             Order[]          @relation("SellerOrders")
+  customRequests    CustomRequest[]
+  customOffers      CustomOffer[]
+  customOrdersAsDev CustomOrder[]    @relation("DevOrders")
+  demoBookings      DemoBooking[]
+  notifications     Notification[]
+}
+
+// =============================================================================
+// LISTINGS — complete AI-built SaaS apps sold as a whole business
+// (source code, brand, docs). One listing = one exclusive sale.
+// =============================================================================
+
+model Listing {
+  id          String  @id @default(cuid())
+  sellerId    String
+  seller      User    @relation(fields: [sellerId], references: [id])
+  title       String
+  slug        String  @unique
+  tagline     String?
+  description String
+  category    String // e.g. "Productivity", "Finance", "Marketing"...
+  techStack   String // JSON array serialized as string (SQLite has no lists)
+  features    String // JSON array serialized as string
+  priceCents  Int // one-time acquisition price in USD cents
+  demoUrl     String?
+  repoUrl     String? // revealed to the buyer only after payment
+  screenshots String  @default("[]") // JSON array of URLs / data URIs
+  // DRAFT -> PENDING_REVIEW -> ACTIVE -> SOLD (or REJECTED by verification)
+  status             String  @default("DRAFT")
+  // NONE -> RUNNING -> PASSED / FAILED  (KERNEL AI verification agent)
+  verificationStatus String  @default("NONE")
+  aiQualityScore     Int? // 0-100 assigned by the verification agent
+  views              Int     @default(0)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  orders           Order[]
+  verificationRuns VerificationRun[]
+  demoBookings     DemoBooking[]
+}
+
+// =============================================================================
+// ORDERS — purchase of a listing (whole business transfer)
+// Payment is split: sellerAmountCents -> seller, platformFeeCents -> platform.
+// =============================================================================
+
+model Order {
+  id               String  @id @default(cuid())
+  buyerId          String
+  buyer            User    @relation("BuyerOrders", fields: [buyerId], references: [id])
+  listingId        String
+  listing          Listing @relation(fields: [listingId], references: [id])
+  sellerId         String
+  seller           User    @relation("SellerOrders", fields: [sellerId], references: [id])
+  totalCents       Int
+  platformFeeCents Int
+  sellerAmountCents Int
+  // PayPal identifiers — order is created server-side then approved by buyer.
+  paypalOrderId   String? @unique
+  paypalCaptureId String?
+  // PENDING -> PAID -> (FAILED | REFUNDED)
+  status            String  @default("PENDING")
+  // True once the asset transfer checklist (repo access, docs) is completed.
+  transferCompleted Boolean @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+// =============================================================================
+// VERIFICATION RUNS — each run is one execution of the KERNEL AI agent that
+// opens the listing's demo URL in a cloud browser, exercises it, and produces
+// a structured report + quality score.
+// =============================================================================
+
+model VerificationRun {
+  id        String   @id @default(cuid())
+  listingId String
+  listing   Listing  @relation(fields: [listingId], references: [id])
+  // RUNNING -> PASSED / FAILED
+  status      String  @default("RUNNING")
+  // JSON report: which checks ran, per-check results, agent notes, screenshot keys
+  report          String?
+  qualityScore    Int?
+  kernelSessionId String?
+  startedAt       DateTime @default(now())
+  completedAt     DateTime?
+}
+
+// =============================================================================
+// CUSTOM REQUESTS — "Fiverr-style" flow: buyer describes an app they want,
+// developers send offers, buyer funds an escrow (PayPal AUTHORIZE), developer
+// delivers, buyer releases (CAPTURE) or disputes.
+// =============================================================================
+
+model CustomRequest {
+  id         String @id @default(cuid())
+  buyerId    String
+  buyer      User   @relation(fields: [buyerId], references: [id])
+  title      String
+  brief      String // raw description written by the buyer
+  refinedBrief String? // structured spec produced by the AI brief-refiner
+  budgetCents  Int
+  deadlineDays Int
+  category     String?
+  // OPEN -> IN_PROGRESS -> DELIVERED -> COMPLETED / CANCELLED
+  status    String   @default("OPEN")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  offers CustomOffer[]
+  order  CustomOrder?
+}
+
+model CustomOffer {
+  id           String        @id @default(cuid())
+  requestId    String
+  request      CustomRequest @relation(fields: [requestId], references: [id])
+  developerId  String
+  developer    User          @relation(fields: [developerId], references: [id])
+  priceCents   Int
+  deliveryDays Int
+  message      String
+  // PENDING -> ACCEPTED / DECLINED
+  status    String   @default("PENDING")
+  createdAt DateTime @default(now())
+
+  order CustomOrder?
+}
+
+model CustomOrder {
+  id          String        @id @default(cuid())
+  requestId   String        @unique
+  request     CustomRequest @relation(fields: [requestId], references: [id])
+  offerId     String        @unique
+  offer       CustomOffer   @relation(fields: [offerId], references: [id])
+  buyerId     String
+  developerId String
+  developer   User          @relation("DevOrders", fields: [developerId], references: [id])
+  amountCents      Int
+  platformFeeCents Int
+  // Escrow state via PayPal: order created with intent=AUTHORIZE, the
+  // authorization holds the funds, capture happens on delivery acceptance.
+  paypalOrderId         String? @unique
+  paypalAuthorizationId String?
+  // PENDING_FUNDING -> FUNDED -> DELIVERED -> COMPLETED / DISPUTED / REFUNDED
+  status        String    @default("PENDING_FUNDING")
+  deliveryUrl   String? // repo / demo link delivered by the developer
+  deliveryNotes String?
+  deliveredAt   DateTime?
+  autoReleaseAt DateTime? // funds auto-release if buyer doesn't respond
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+// =============================================================================
+// DEMO BOOKINGS — buyer books a live demo slot with the seller before buying
+// (rendered with the Bryntum scheduler on the frontend).
+// =============================================================================
+
+model DemoBooking {
+  id        String   @id @default(cuid())
+  listingId String
+  listing   Listing  @relation(fields: [listingId], references: [id])
+  buyerId   String
+  buyer     User     @relation(fields: [buyerId], references: [id])
+  startTime DateTime
+  endTime   DateTime
+  notes     String?
+  // SCHEDULED -> COMPLETED / CANCELLED
+  status    String   @default("SCHEDULED")
+  createdAt DateTime @default(now())
+}
+
+// =============================================================================
+// NOTIFICATIONS — lightweight in-app notification feed.
+// =============================================================================
+
+model Notification {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  type      String // ORDER_PAID, OFFER_RECEIVED, DELIVERY, VERIFICATION, ...
+  title     String
+  body      String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+}

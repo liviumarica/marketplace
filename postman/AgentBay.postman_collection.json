@@ -1,0 +1,332 @@
+{
+  "info": {
+    "_postman_id": "agentbay-collection-001",
+    "name": "AgentBay — AI SaaS Marketplace API",
+    "description": "Complete API surface of the AgentBay marketplace.\n\nAuth: cookie-based session — run `Auth > Register` or `Auth > Login` first; Postman stores the `agentbay_session` cookie automatically.\n\nVariables:\n- `baseUrl` — e.g. http://localhost:3000\n- `listingId`, `orderId`, `requestId`, `offerId`, `customOrderId` — fill in with real ids from previous responses.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000" },
+    { "key": "listingId", "value": "" },
+    { "key": "orderId", "value": "" },
+    { "key": "requestId", "value": "" },
+    { "key": "offerId", "value": "" },
+    { "key": "customOrderId", "value": "" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/auth/register",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"dev@example.com\",\n  \"password\": \"password123\",\n  \"name\": \"Dev Seller\",\n  \"role\": \"SELLER\"\n}"
+            },
+            "description": "Creates a user and sets the session cookie."
+          }
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/auth/login",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"dev@example.com\",\n  \"password\": \"password123\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Me",
+          "request": { "method": "GET", "url": "{{baseUrl}}/api/auth/me" }
+        },
+        {
+          "name": "Logout",
+          "request": { "method": "POST", "url": "{{baseUrl}}/api/auth/logout" }
+        },
+        {
+          "name": "Update profile (PayPal recipient)",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/profile",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"paypalEmail\": \"seller-sandbox@business.example.com\",\n  \"paypalMerchantId\": \"SANDBOX_MERCHANT_ID\",\n  \"bio\": \"I build SaaS with AI\"\n}"
+            },
+            "description": "Sets the seller's PayPal sandbox identity used for split payments / payouts."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Listings",
+      "item": [
+        {
+          "name": "Create listing",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/listings",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"InvoicePilot\",\n  \"tagline\": \"AI invoicing assistant\",\n  \"description\": \"Full SaaS business for sale — code, brand, docs.\",\n  \"category\": \"Finance\",\n  \"techStack\": [\"Next.js\", \"Postgres\"],\n  \"features\": [\"AI reminders\", \"Payment tracking\"],\n  \"priceCents\": 49000,\n  \"demoUrl\": \"https://example.com/demo\",\n  \"repoUrl\": \"https://github.com/you/invoicepilot\"\n}"
+            },
+            "description": "Creates a listing (ACTIVE immediately) and indexes it in Elasticsearch."
+          }
+        },
+        {
+          "name": "AI: autofill listing from URL",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/ai/listing-autofill",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"url\": \"https://github.com/your/app\"\n}"
+            },
+            "description": "Fetches the URL and asks the LLM to produce title/tagline/description/category/tech/features."
+          }
+        },
+        {
+          "name": "AI: suggest price",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/ai/price-suggest",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"InvoicePilot\",\n  \"description\": \"AI invoicing assistant\",\n  \"category\": \"Finance\",\n  \"techStack\": [\"Next.js\"],\n  \"features\": [\"AI reminders\"]\n}"
+            }
+          }
+        },
+        {
+          "name": "Verify listing (KERNEL agent)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/listings/{{listingId}}/verify",
+            "description": "Starts a KERNEL cloud-browser verification run against the listing's demoUrl."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Orders (split payment)",
+      "item": [
+        {
+          "name": "Create order",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/orders/create",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"listingId\": \"{{listingId}}\"\n}"
+            },
+            "description": "Creates a PayPal order. In `multi_unit` mode the order contains two purchase units (seller share + platform fee); in `payout` mode the platform captures the full amount and pays out the seller share via the Payouts API."
+          }
+        },
+        {
+          "name": "Capture order",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/orders/capture",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"paypalOrderId\": \"{{orderId}}\"\n}"
+            },
+            "description": "Captures the approved PayPal order, marks the order PAID, marks the listing SOLD and (in payout mode) sends the seller payout."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Custom orders (escrow)",
+      "item": [
+        {
+          "name": "Create request",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/requests",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"CRM for dog groomers\",\n  \"brief\": \"Need booking, client list, SMS reminders.\",\n  \"budgetCents\": 30000,\n  \"deadlineDays\": 14,\n  \"category\": \"Productivity\"\n}"
+            }
+          }
+        },
+        {
+          "name": "AI: refine brief",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/ai/refine-brief",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"brief\": \"Need booking, client list, SMS reminders for dog groomers\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Make offer (developer)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/requests/{{requestId}}/offers",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"priceCents\": 25000,\n  \"deliveryDays\": 10,\n  \"message\": \"I can build this with AI-assisted scaffolding in 10 days.\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Fund escrow (AUTHORIZE)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/custom-orders/fund",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"offerId\": \"{{offerId}}\"\n}"
+            },
+            "description": "Creates a PayPal order with intent=AUTHORIZE — funds are held, not captured."
+          }
+        },
+        {
+          "name": "Authorize (buyer approved)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/custom-orders/authorize",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"paypalOrderId\": \"{{orderId}}\"\n}"
+            },
+            "description": "Authorizes the PayPal order after buyer approval → escrow state FUNDED."
+          }
+        },
+        {
+          "name": "Deliver (developer)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/custom-orders/{{customOrderId}}/deliver",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"deliveryUrl\": \"https://github.com/dev/delivered-app\",\n  \"deliveryNotes\": \"Deployed + docs included.\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Accept (CAPTURE + payout)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/custom-orders/{{customOrderId}}/accept",
+            "description": "Captures the held authorization and pays the developer's share."
+          }
+        },
+        {
+          "name": "Dispute (VOID auth)",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/custom-orders/{{customOrderId}}/dispute",
+            "description": "Voids the PayPal authorization — funds return to the buyer."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Search & AI services",
+      "item": [
+        {
+          "name": "Search (semantic)",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/search?q=invoicing",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "search"],
+              "query": [{ "key": "q", "value": "invoicing" }]
+            },
+            "description": "Hybrid kNN+BM25 when Elasticsearch is configured; SQL LIKE fallback otherwise."
+          }
+        },
+        {
+          "name": "Reindex into Elastic",
+          "request": {
+            "method": "POST",
+            "url": "{{baseUrl}}/api/search/reindex",
+            "description": "Admin only — re-embeds and re-indexes every listing."
+          }
+        },
+        {
+          "name": "Channel3 price benchmark",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/channel3/benchmark",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"invoicing software\",\n  \"priceCents\": 49000\n}"
+            },
+            "description": "Compares the listing price against real product prices from the Channel3 API."
+          }
+        },
+        {
+          "name": "Book a demo",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/bookings",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"listingId\": \"{{listingId}}\",\n  \"startTime\": \"2026-10-20T15:00:00Z\",\n  \"endTime\": \"2026-10-20T15:30:00Z\",\n  \"notes\": \"Want to see the admin panel.\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Agent & webhooks",
+      "item": [
+        {
+          "name": "Buyer agent chat",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": "{{baseUrl}}/api/agent/chat",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"messages\": [{ \"role\": \"user\", \"content\": \"Find me an invoicing SaaS under $500\" }]\n}"
+            },
+            "description": "Streaming chat endpoint — the agent can search listings and create real PayPal orders via the PayPal Agent Toolkit."
+          }
+        },
+        {
+          "name": "PayPal webhook",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "PAYPAL-TRANSMISSION-ID", "value": "" },
+              { "key": "PAYPAL-TRANSMISSION-SIG", "value": "" },
+              { "key": "PAYPAL-TRANSMISSION-TIME", "value": "" },
+              { "key": "PAYPAL-CERT-URL", "value": "" },
+              { "key": "PAYPAL-AUTH-ALGO", "value": "" }
+            ],
+            "url": "{{baseUrl}}/api/paypal/webhook",
+            "body": { "mode": "raw", "raw": "{ \"event_type\": \"PAYMENT.CAPTURE.COMPLETED\", \"resource\": {} }" },
+            "description": "Receives PayPal webhook events; signature is verified against PAYPAL_WEBHOOK_ID."
+          }
+        }
+      ]
+    }
+  ]
+}
