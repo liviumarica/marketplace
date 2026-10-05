@@ -7,7 +7,7 @@
 import { after, NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/auth";
+import { emailVerificationRequired, requireUser } from "@/lib/auth";
 import { runListingVerification } from "@/lib/kernel";
 import { indexListing } from "@/lib/elastic";
 
@@ -69,6 +69,9 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const user = await requireUser();
+  // Transacting requires a confirmed email address (anti-impersonation).
+  const blocked = emailVerificationRequired(user);
+  if (blocked) return blocked;
   if (user.role === "BUYER") {
     return NextResponse.json(
       { error: "Only sellers can create listings" },

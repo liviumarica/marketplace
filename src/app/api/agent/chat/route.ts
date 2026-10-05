@@ -29,6 +29,7 @@ import { createSaleOrder } from "@/lib/paypal";
 import { paypalAgentTools } from "@/lib/paypal-agent-tools";
 import { env } from "@/lib/env";
 import { platformFee } from "@/lib/money";
+import { isPayoutReady, SELLER_NOT_PAYOUT_READY } from "@/lib/payout";
 
 export const maxDuration = 120;
 
@@ -133,6 +134,16 @@ export async function POST(req: NextRequest) {
         }
         if (listing.sellerId === user.id) {
           return { error: "You cannot buy your own listing" };
+        }
+        // Same rules as POST /api/orders/create.
+        if (!user.emailVerifiedAt) {
+          return {
+            error:
+              "The buyer must verify their email address before purchasing — ask them to click the link in the verification email (or resend it from the banner).",
+          };
+        }
+        if (!isPayoutReady(listing.seller)) {
+          return { error: SELLER_NOT_PAYOUT_READY };
         }
 
         const feeCents = platformFee(listing.priceCents, env.platformFeeBps);

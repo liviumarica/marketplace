@@ -1,6 +1,6 @@
 /**
  * Dashboard — the seller/admin control room.
- * Stat cards, an AG Grid Enterprise transaction table, and a Bryntum
+ * Stat cards, an AG Grid transaction table, and a Bryntum
  * calendar with demo bookings — all fed by real database rows.
  */
 import { redirect } from "next/navigation";
@@ -8,6 +8,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
 import { formatUsd } from "@/lib/money";
+import { isPayoutReady, missingPayoutField } from "@/lib/payout";
 import { SalesGrid, type OrderRow } from "@/components/SalesGrid";
 import { BookingsCalendar } from "@/components/BookingsCalendar";
 import { PageTransition } from "@/components/fx/PageTransition";
@@ -115,6 +116,22 @@ export default async function DashboardPage() {
           }
         />
 
+        {/* Sellers may publish before adding PayPal — remind them that buyers
+            can't check out until they do. */}
+        {!isAdmin && !isPayoutReady(user) && myListings.some((l) => l.status !== "SOLD") && (
+          <Reveal>
+            <div className="mt-8 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-amber-300/30 bg-amber-300/[0.06] px-5 py-4 text-sm">
+              <p className="text-amber-50">
+                <strong className="font-semibold">Buyers can&apos;t check out yet.</strong> Add your{" "}
+                {missingPayoutField()} so your 90% share can be paid out.
+              </p>
+              <Link href="/settings#payouts" className="btn-primary !py-2 !text-sm">
+                Set up payouts
+              </Link>
+            </div>
+          </Reveal>
+        )}
+
         {/* Stat cards — values count up from real aggregates */}
         <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <StatCard
@@ -152,7 +169,26 @@ export default async function DashboardPage() {
               {isAdmin ? "All marketplace transactions" : "Your sales"}
             </h2>
             <div className="glass rounded-2xl p-3">
-              <SalesGrid rows={saleRows} />
+              <SalesGrid
+                rows={saleRows}
+                empty={
+                  isAdmin
+                    ? {
+                        title: "No transactions yet",
+                        body: "Every marketplace sale will appear here with its seller share and platform fee.",
+                      }
+                    : myListings.length === 0
+                      ? {
+                          title: "No sales yet",
+                          body: "Publish your first app — the AI autopilot writes the listing from a repo or demo URL.",
+                          action: { href: "/listings/new", label: "Publish your first app" },
+                        }
+                      : {
+                          title: "No sales yet",
+                          body: "Your listings are live. Sales will show up here as soon as a buyer checks out.",
+                        }
+                }
+              />
             </div>
           </section>
         </Reveal>
@@ -173,13 +209,15 @@ export default async function DashboardPage() {
           <section className="mt-12">
             <h2 className="mb-4 text-xl font-semibold text-white">Your listings</h2>
             {myListings.length === 0 ? (
-              <p className="glass text-muted rounded-2xl p-10 text-center text-sm">
-                No listings yet —{" "}
-                <Link href="/listings/new" className="link-neon">
-                  sell your first app
+              <div className="glass flex flex-col items-center rounded-2xl px-6 py-12 text-center">
+                <p className="font-semibold text-white">You haven&apos;t listed anything yet</p>
+                <p className="text-muted mt-1 max-w-sm text-sm">
+                  Paste a GitHub repo or demo URL and the AI writes the listing for you. It takes about a minute.
+                </p>
+                <Link href="/listings/new" className="btn-primary mt-5">
+                  Publish your first app
                 </Link>
-                .
-              </p>
+              </div>
             ) : (
               <div className="glass overflow-hidden rounded-2xl">
                 <table className="table-neon w-full text-sm">

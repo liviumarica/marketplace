@@ -23,7 +23,11 @@ export async function POST(req: NextRequest) {
   }
   const { email, password } = parsed.data;
 
-  const user = await prisma.user.findUnique({ where: { email } });
+  // New accounts are stored lower-cased; fall back to the exact input for
+  // accounts created before email normalisation was introduced.
+  const user =
+    (await prisma.user.findUnique({ where: { email: email.trim().toLowerCase() } })) ??
+    (await prisma.user.findUnique({ where: { email } }));
   // Same error for unknown email and wrong password — don't leak which one failed.
   if (!user || !(await verifyPassword(password, user.passwordHash))) {
     return NextResponse.json(

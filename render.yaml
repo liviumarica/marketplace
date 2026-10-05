@@ -47,3 +47,8 @@ services:
         sync: false
       - key: CHANNEL3_API_KEY
         sync: false
+      # Transactional email (verification, password reset, welcome) via Resend.
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false

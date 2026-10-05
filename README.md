@@ -62,7 +62,7 @@ Any OpenAI-compatible endpoint works — set `OPENAI_API_KEY` (+ optionally `OPE
 | Sponsor | Where |
 |---|---|
 | **PayPal** | Orders v2 split payments, AUTHORIZE/CAPTURE/VOID escrow, Payouts, Agent Toolkit, JS SDK, webhooks |
-| **AG Grid** (Enterprise) | `/dashboard` — `SalesGrid` transaction tables (filter/sort/paginate real order rows: seller share, platform fee, status) |
+| **AG Grid** (Community) | `/dashboard` — `SalesGrid` transaction tables (filter/sort/paginate real order rows: seller share, platform fee, status) |
 | **KERNEL** | `src/lib/kernel.ts` — cloud browser sessions driven by `playwright-core` over CDP; the AI verification agent |
 | **Elastic** | `src/lib/elastic.ts` — index mapping (`dense_vector`, cosine), per-listing indexing, hybrid kNN+BM25 search, `/api/search/reindex` |
 | **Channel3** | `src/app/api/channel3/benchmark` — real product prices compared to the listing price; `PriceBenchmark` component on listing pages |
@@ -90,7 +90,7 @@ npm run db:seed
 npm run dev        # → http://localhost:3000
 ```
 
-### Demo accounts (all passwords `password123`)
+### Demo accounts (local seed only — all passwords `password123`, pre-verified)
 | Account | Role |
 |---|---|
 | `admin@agentbay.dev` | platform admin — sees all transactions + fees |
@@ -111,7 +111,9 @@ npm run dev        # → http://localhost:3000
 | `KERNEL_API_KEY` | for verification | [onkernel.com](https://dashboard.onkernel.com) |
 | `ELASTIC_URL` / `ELASTIC_API_KEY` | for semantic search | local docker or Elastic Cloud |
 | `CHANNEL3_API_KEY` | for benchmarking | [trychannel3.com](https://trychannel3.com/developers) |
-| `APP_URL`, `PAYPAL_WEBHOOK_ID` | | deploy URL / webhook signature |
+| `RESEND_API_KEY` | ✔ for email | [Resend](https://resend.com) key — verification, password-reset and welcome emails |
+| `EMAIL_FROM` | | sender, default `AgentBay <market@adskings.com>` (adskings.com verified in Resend) |
+| `APP_URL`, `PAYPAL_WEBHOOK_ID` | | deploy URL (used in emailed links) / webhook signature |
 
 Missing optional credentials disable only that feature — PayPal keys, AI keys and the DB are the only hard requirements, and the app fails loudly with a clear message rather than silently degrading.
 
@@ -124,12 +126,23 @@ docker run -d -p 9200:9200 -e "discovery.type=single-node" \
 
 ---
 
+## Accounts & email
+
+- Sign-up creates the account and signs the user in, but it starts **unverified**: a real verification email is sent through Resend. Until the link is clicked the user can browse but cannot publish, buy, post requests, send offers, fund escrow or book demos (API returns `403 EMAIL_NOT_VERIFIED`; a banner offers *Resend email*).
+- After verification a one-time **welcome email** is sent.
+- **Forgot password** (`/forgot-password`) emails a single-use link valid for 1 hour; resetting signs the user out on every device.
+- Tokens are stored only as SHA-256 hashes; resend / reset emails are throttled to one per minute per user.
+- `/settings` — profile, PayPal payout details, password change.
+- Sellers can publish **without** PayPal details; buyers can check out once the seller adds them (PayPal email in `payout` mode, Merchant ID in `multi_unit` mode).
+
 ## API surface
 
 Everything is documented in the Postman collection (`postman/AgentBay.postman_collection.json`). Highlights:
 
 ```
 POST /api/auth/{register,login,logout}      GET /api/auth/me   PATCH /api/profile
+POST /api/auth/{forgot-password,reset-password,change-password,resend-verification}
+GET  /api/auth/verify-email?token=…
 POST /api/listings                          POST /api/listings/:id/verify
 POST /api/ai/{listing-autofill,price-suggest,refine-brief}
 POST /api/orders/{create,capture}           POST /api/paypal/webhook
@@ -169,6 +182,8 @@ separate migration histories; the SQLite data is not copied to PostgreSQL.
 | `PLATFORM_FEE_BPS` | `1000` |
 | `APP_URL` | Public app URL, e.g. `https://your-project.vercel.app` |
 | `OPENAI_API_KEY` | Required to use the AI features |
+| `RESEND_API_KEY` | Required — verification / password-reset / welcome emails (the build fails without it) |
+| `EMAIL_FROM` | Optional — defaults to `AgentBay <market@adskings.com>` (adskings.com must be verified in Resend) |
 
 Generate an authentication secret locally with:
 
@@ -212,7 +227,7 @@ References: [Prisma on Vercel](https://docs.prisma.io/docs/orm/v6/prisma-client/
 
 ```
 src/app/            pages + API routes (App Router)
-src/lib/            paypal, kernel, elastic, ai, auth, env, prisma
+src/lib/            paypal, kernel, elastic, ai, auth, email, env, prisma
 src/components/     PayPal buttons, AG Grid, Bryntum calendar, agent UI
 prisma/             schema, migrations, seed
 postman/            API collection

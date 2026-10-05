@@ -28,7 +28,7 @@
     "@paypal/react-paypal-js": "^10.5.2",
     "@prisma/client": "^6.19.3",
     "@react-three/fiber": "9.8.0",
-    "ag-grid-enterprise": "^36.2.0",
+    "ag-grid-community": "^36.2.0",
     "ag-grid-react": "^36.2.0",
     "ai": "^7.0.127",
     "bcryptjs": "^3.0.3",

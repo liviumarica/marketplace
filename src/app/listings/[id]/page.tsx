@@ -15,6 +15,7 @@ import { getSessionUser } from "@/lib/auth";
 import { formatUsd, platformFee } from "@/lib/money";
 import { env } from "@/lib/env";
 import { hueFor } from "@/lib/hue";
+import { isPayoutReady, missingPayoutField, SELLER_NOT_PAYOUT_READY } from "@/lib/payout";
 import { BuyWithPayPal } from "@/components/BuyWithPayPal";
 import { DemoScheduler } from "@/components/DemoScheduler";
 import { PriceBenchmark } from "@/components/PriceBenchmark";
@@ -33,7 +34,10 @@ export default async function ListingDetailPage({ params }: PageProps) {
   const listing = await prisma.listing.findUnique({
     where: { id },
     include: {
-      seller: { select: { id: true, name: true, createdAt: true } },
+      // PayPal fields are read server-side only, to decide if checkout is possible.
+      seller: {
+        select: { id: true, name: true, createdAt: true, paypalEmail: true, paypalMerchantId: true },
+      },
       verificationRuns: {
         orderBy: { startedAt: "desc" },
         take: 1,
@@ -57,6 +61,8 @@ export default async function ListingDetailPage({ params }: PageProps) {
   const report = latestRun?.report ? JSON.parse(latestRun.report) : null;
   const isOwner = user?.id === listing.sellerId;
   const canBuy = listing.status === "ACTIVE" && !isOwner;
+  // Sellers can publish before adding PayPal; checkout waits until they do.
+  const sellerPayoutReady = isPayoutReady(listing.seller);
   const hue = hueFor(listing.category);
   // Share of the price that goes to the seller (for the split bar).
   const sellerPct =
@@ -274,19 +280,37 @@ export default async function ListingDetailPage({ params }: PageProps) {
 
               <div className="mt-4">
                 {canBuy ? (
-                  user ? (
+                  !user ? (
+                    <Link href="/login" className="btn-primary w-full">
+                      Log in to buy
+                    </Link>
+                  ) : !sellerPayoutReady ? (
+                    <p className="alert-info text-center">{SELLER_NOT_PAYOUT_READY}</p>
+                  ) : !user.emailVerifiedAt ? (
+                    <p className="alert-info text-center">
+                      Verify your email to buy — use the link we sent you, or resend it from the reminder at the bottom of the page.
+                    </p>
+                  ) : (
                     <BuyWithPayPal
                       listingId={listing.id}
                       priceLabel={formatUsd(listing.priceCents)}
                       paypalClientId={env.paypalClientId}
                     />
-                  ) : (
-                    <Link href="/login" className="btn-primary w-full">
-                      Log in to buy
-                    </Link>
                   )
                 ) : isOwner ? (
-                  <p className="alert-info text-center">This is your listing</p>
+                  <div className="space-y-3">
+                    <p className="alert-info text-center">This is your listing</p>
+                    {/* Nudge the owner to finish payout setup so buyers can pay. */}
+                    {!sellerPayoutReady && listing.status !== "SOLD" && (
+                      <p className="alert-error text-center text-sm">
+                        Buyers can&apos;t check out yet — add your {missingPayoutField()} in{" "}
+                        <Link href="/settings#payouts" className="link-neon">
+                          Settings
+                        </Link>
+                        .
+                      </p>
+                    )}
+                  </div>
                 ) : (
                   <p className="alert-info text-center">
                     {listing.status === "SOLD" ? "Sold" : "Not available for purchase yet"}

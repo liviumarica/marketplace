@@ -32,9 +32,16 @@ model User {
   paypalMerchantId String?
   paypalEmail      String?
   bio              String?
+  // Set once the user clicks the link in the verification email. Unverified
+  // users can log in and browse but cannot transact (publish, buy, offer...).
+  emailVerifiedAt DateTime?
+  // Embedded in every session JWT. Bumping it (password reset / change)
+  // invalidates every session issued before, on every device.
+  sessionVersion  Int       @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  authTokens        AuthToken[]
   listings          Listing[]
   purchases         Order[]          @relation("BuyerOrders")
   sales             Order[]          @relation("SellerOrders")
@@ -43,6 +50,26 @@ model User {
   customOrdersAsDev CustomOrder[]    @relation("DevOrders")
   demoBookings      DemoBooking[]
   notifications     Notification[]
+}
+
+// =============================================================================
+// AUTH TOKENS — single-use secrets sent by email (verification, password
+// reset). Only a SHA-256 hash of the token is stored, so a database leak does
+// not expose usable links.
+// =============================================================================
+
+model AuthToken {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  // EMAIL_VERIFY | PASSWORD_RESET
+  type      String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, type])
 }
 
 // =============================================================================

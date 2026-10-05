@@ -5,7 +5,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/auth";
+import { emailVerificationRequired, requireUser } from "@/lib/auth";
 
 const schema = z.object({
   priceCents: z.number().int().positive(),
@@ -18,6 +18,9 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const user = await requireUser();
+  // Transacting requires a confirmed email address (anti-impersonation).
+  const blocked = emailVerificationRequired(user);
+  if (blocked) return blocked;
   const { id } = await params;
   const parsed = schema.safeParse(await req.json());
   if (!parsed.success) {

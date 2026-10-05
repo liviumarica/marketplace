@@ -14,9 +14,17 @@ if (secret.length < 32 || /^(generate-a-long|dev-only)/.test(secret)) {
   errors.push("Set AUTH_SECRET to a random secret of at least 32 characters in Vercel.");
 }
 
+// Email verification and password reset depend on real email delivery.
+if (!process.env.RESEND_API_KEY) {
+  errors.push("Set RESEND_API_KEY in Vercel — verification and password-reset emails cannot be sent without it.");
+}
+if (!process.env.EMAIL_FROM) {
+  console.log("EMAIL_FROM is not set: emails will be sent from the default AgentBay <market@adskings.com>.");
+}
+
 if (errors.length) {
   console.error("Vercel deployment configuration is incomplete:\n" + errors.join("\n"));
   process.exit(1);
 }
 
-console.log("Vercel database and authentication configuration validated.");
+console.log("Vercel database, authentication and email configuration validated.");

@@ -15,6 +15,8 @@ export async function GET() {
       role: user.role,
       paypalEmail: user.paypalEmail,
       paypalMerchantId: user.paypalMerchantId,
+      bio: user.bio,
+      emailVerified: Boolean(user.emailVerifiedAt),
     },
   });
 }

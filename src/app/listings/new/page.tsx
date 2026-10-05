@@ -5,10 +5,12 @@
  *
  * Seller pastes a GitHub repo or demo URL -> "Generate with AI" fetches the
  * real page content and fills the form -> "Suggest price" prices it ->
- * submit creates the listing. PayPal payout details are collected once and
- * stored on the seller profile.
+ * submit creates the listing. PayPal payout details are OPTIONAL here (less
+ * friction for new sellers): if filled they are stored on the seller
+ * profile, otherwise the seller adds them later in Settings — checkout for
+ * their listings is enabled as soon as they do.
  */
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PageTransition } from "@/components/fx/PageTransition";
 import { PageHeader } from "@/components/fx/PageHeader";
@@ -54,6 +56,24 @@ export default function NewListingPage() {
   // Seller PayPal payout identity.
   const [paypalEmail, setPaypalEmail] = useState("");
   const [paypalMerchantId, setPaypalMerchantId] = useState("");
+  // True once the seller already has payout details saved on their profile.
+  const [hasSavedPayout, setHasSavedPayout] = useState(false);
+
+  // Pre-fill payout details already stored on the profile so returning
+  // sellers don't retype them (and so we never overwrite them with blanks).
+  useEffect(() => {
+    fetch("/api/auth/me")
+      .then((r) => r.json())
+      .then(({ user }) => {
+        if (!user) return;
+        setPaypalEmail(user.paypalEmail ?? "");
+        setPaypalMerchantId(user.paypalMerchantId ?? "");
+        setHasSavedPayout(Boolean(user.paypalEmail || user.paypalMerchantId));
+      })
+      .catch(() => {
+        /* non-blocking: the fields simply stay empty */
+      });
+  }, []);
 
   const [status, setStatus] = useState<string | null>(null);
   const [busy, setBusy] = useState<"ai" | "price" | "submit" | null>(null);
@@ -114,18 +134,31 @@ export default function NewListingPage() {
     );
   }
 
-  /** Save PayPal payout details then create the listing. */
+  /** Save PayPal payout details (if provided) then create the listing. */
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setBusy("submit");
     setStatus(null);
 
-    // Persist the seller's PayPal identity so payouts can reach them.
-    await fetch("/api/profile", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ paypalEmail, paypalMerchantId }),
-    });
+    // Persist the seller's PayPal identity only when something was entered —
+    // blank fields are skipped so saved details are never wiped.
+    const payout = {
+      ...(paypalEmail.trim() ? { paypalEmail: paypalEmail.trim() } : {}),
+      ...(paypalMerchantId.trim() ? { paypalMerchantId: paypalMerchantId.trim() } : {}),
+    };
+    if (Object.keys(payout).length > 0) {
+      const profileRes = await fetch("/api/profile", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payout),
+      });
+      if (!profileRes.ok) {
+        const pj = await profileRes.json().catch(() => ({}));
+        setBusy(null);
+        setStatus(`error:${pj.error ?? "Could not save payout details"}`);
+        return;
+      }
+    }
 
     const res = await fetch("/api/listings", {
       method: "POST",
@@ -314,17 +347,22 @@ export default function NewListingPage() {
         </div>
         {priceHint && <p className="alert-info text-xs">{priceHint}</p>}
 
-        {/* PayPal payout details */}
+        {/* PayPal payout details — optional at publish time */}
         <section className="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
-          <h2 className="font-semibold text-white">Your PayPal payout details (sandbox)</h2>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h2 className="font-semibold text-white">PayPal payout details</h2>
+            <span className={`chip ${hasSavedPayout ? "chip-green" : ""}`}>
+              {hasSavedPayout ? "✓ Saved on your profile" : "Optional — add now or later"}
+            </span>
+          </div>
           <p className="text-dim mt-1 text-xs">
-            Where your 90% share goes — use your sandbox business account.
+            Where your 90% share goes. You can publish without it and add it
+            later in Settings — buyers can check out once it&apos;s set.
           </p>
           <div className="mt-3 grid gap-4 sm:grid-cols-2">
             <label className="field-label">
-              PayPal email *
+              PayPal email
               <input
-                required
                 type="email"
                 value={paypalEmail}
                 onChange={(e) => setPaypalEmail(e.target.value)}

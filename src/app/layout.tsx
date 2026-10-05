@@ -6,6 +6,7 @@ import { Footer } from "@/components/Footer";
 import { SmoothScroll } from "@/components/fx/SmoothScroll";
 import { CosmicBackground } from "@/components/fx/CosmicBackground";
 import { ScrollProgress } from "@/components/fx/ScrollProgress";
+import { VerifyEmailBanner } from "@/components/VerifyEmailBanner";
 import { getSessionUser } from "@/lib/auth";
 
 // Body copy font.
@@ -67,6 +68,8 @@ export default async function RootLayout({ children }: LayoutProps<"/">) {
         {/* Top padding leaves room for the floating navbar. */}
         <main className="flex-1 pt-24">{children}</main>
         <Footer />
+        {/* Reminder for signed-in users who haven't confirmed their email. */}
+        {user && !user.emailVerifiedAt && <VerifyEmailBanner email={user.email} />}
       </body>
     </html>
   );

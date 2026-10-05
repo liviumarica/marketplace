@@ -98,9 +98,37 @@ export const env = {
     return process.env.CHANNEL3_API_KEY;
   },
 
-  /** Public base URL of this deployment (used for webhook + PayPal return URLs). */
+  /**
+   * Resend (https://resend.com) API key — used for every transactional email
+   * (verification, password reset, welcome). Required to send email; without
+   * it the email helpers throw a descriptive error instead of faking success.
+   */
+  get resendApiKey() {
+    return required("RESEND_API_KEY");
+  },
+  /**
+   * Sender identity for all transactional email. Defaults to the
+   * marketplace's own address on adskings.com (domain verified in Resend);
+   * override with EMAIL_FROM, e.g. `AgentBay <no-reply@otherdomain.com>`.
+   */
+  get emailFrom() {
+    return process.env.EMAIL_FROM || "AgentBay <market@adskings.com>";
+  },
+
+  /**
+   * Public base URL of this deployment (used for webhook, PayPal return URLs
+   * and the links inside emails). Resolution order:
+   *   1. APP_URL (explicit, recommended),
+   *   2. VERCEL_PROJECT_PRODUCTION_URL — the stable production domain, so
+   *      emailed links never point at a short-lived preview deployment,
+   *   3. VERCEL_URL — the current deployment,
+   *   4. localhost for `npm run dev`.
+   */
   get appUrl() {
-    return process.env.APP_URL ||
-      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : "http://localhost:3000");
+    const vercelHost = process.env.VERCEL_PROJECT_PRODUCTION_URL || process.env.VERCEL_URL;
+    return (
+      process.env.APP_URL ||
+      (vercelHost ? `https://${vercelHost}` : "http://localhost:3000")
+    ).replace(/\/$/, "");
   },
 };

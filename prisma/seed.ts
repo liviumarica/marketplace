@@ -91,6 +91,16 @@ async function main() {
     },
   });
 
+  // Demo accounts use non-deliverable .dev addresses, so they can never click
+  // a verification link — mark them verified so they can transact locally.
+  await prisma.user.updateMany({
+    where: {
+      id: { in: [admin.id, alex.id, maria.id, bob.id] },
+      emailVerifiedAt: null,
+    },
+    data: { emailVerifiedAt: new Date() },
+  });
+
   // ------------------------------------------------------------- listings
   const listings = [
     {

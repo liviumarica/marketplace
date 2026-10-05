@@ -7,11 +7,14 @@
  *     (motion `layoutId`), and
  *   - collapses into an animated full-width sheet on mobile.
  *
- * Session-dependent actions (login/logout, dashboard, sell) are unchanged;
- * logout is a real POST to /api/auth/logout.
+ * Session-dependent actions: login/sign-up for guests; dashboard, settings,
+ * sell and logout for signed-in users. Logout is a plain HTML form POST to
+ * /api/auth/logout — the server clears the cookie and answers with a 303
+ * redirect, so the browser does a full navigation and no stale signed-in UI
+ * can survive in the client router cache.
  */
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { AnimatePresence, motion, useMotionValueEvent, useScroll } from "motion/react";
 import { useState } from "react";
 import { Magnetic } from "@/components/fx/Magnetic";
@@ -36,8 +39,18 @@ function isActive(pathname: string, href: string): boolean {
   return pathname.startsWith(href);
 }
 
+/** Real POST form that logs the user out (see /api/auth/logout). */
+function LogoutForm({ className, label, title }: { className: string; label: string; title?: string }) {
+  return (
+    <form action="/api/auth/logout" method="post">
+      <button type="submit" className={className} title={title}>
+        {label}
+      </button>
+    </form>
+  );
+}
+
 export function Navbar({ user }: NavbarProps) {
-  const router = useRouter();
   const pathname = usePathname();
   const { scrollY } = useScroll();
   const [scrolled, setScrolled] = useState(false);
@@ -45,12 +58,6 @@ export function Navbar({ user }: NavbarProps) {
 
   // Flip into the compact state after a small scroll distance.
   useMotionValueEvent(scrollY, "change", (y) => setScrolled(y > 24));
-
-  async function logout() {
-    await fetch("/api/auth/logout", { method: "POST" });
-    router.push("/");
-    router.refresh();
-  }
 
   return (
     <header
@@ -119,13 +126,20 @@ export function Navbar({ user }: NavbarProps) {
               >
                 Dashboard
               </Link>
-              <button
-                onClick={logout}
-                className="rounded-lg px-3 py-1.5 text-white/60 transition-colors hover:text-white"
+              <Link
+                href="/settings"
+                className={`rounded-lg px-3 py-1.5 transition-colors ${
+                  pathname.startsWith("/settings") ? "text-white" : "text-white/60 hover:text-white"
+                }`}
                 title={user.email}
               >
-                Log out
-              </button>
+                Settings
+              </Link>
+              <LogoutForm
+                className="rounded-lg px-3 py-1.5 text-white/60 transition-colors hover:text-white"
+                label="Log out"
+                title={user.email}
+              />
               <Magnetic>
                 <Link href="/listings/new" className="btn-primary !rounded-xl !px-4 !py-2 !text-sm">
                   Sell your app
@@ -182,6 +196,7 @@ export function Navbar({ user }: NavbarProps) {
               ...(user
                 ? [
                     { href: "/dashboard", label: "Dashboard" },
+                    { href: "/settings", label: "Settings" },
                     { href: "/listings/new", label: "Sell your app" },
                   ]
                 : [
@@ -205,15 +220,10 @@ export function Navbar({ user }: NavbarProps) {
               </motion.div>
             ))}
             {user && (
-              <button
-                onClick={() => {
-                  setOpen(false);
-                  void logout();
-                }}
-                className="rounded-xl px-4 py-3 text-left text-white/60 hover:bg-white/5 hover:text-white"
-              >
-                Log out ({user.email})
-              </button>
+              <LogoutForm
+                className="w-full rounded-xl px-4 py-3 text-left text-white/60 hover:bg-white/5 hover:text-white"
+                label={`Log out (${user.email})`}
+              />
             )}
           </motion.nav>
         )}

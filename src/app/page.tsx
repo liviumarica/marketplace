@@ -145,6 +145,16 @@ export default async function Home({ searchParams }: HomeProps) {
     { label: "Paid through PayPal", value: paidVolume._sum.totalCents ?? 0, format: "usd" as const },
     { label: "Open custom builds", value: openRequests, format: "int" as const },
   ];
+  // A row of zeros undermines trust on a brand-new marketplace, so live
+  // numbers are only shown once there is real activity; until then the
+  // strip states the platform's guarantees instead (all true, nothing faked).
+  const hasActivity = stats.some((s) => s.value > 0);
+  const guarantees = [
+    { title: "Full ownership", body: "Source code, brand & docs transfer to you" },
+    { title: "AI-tested", body: "An agent runs each demo and scores it" },
+    { title: "PayPal checkout", body: "Pay with PayPal — no card details shared" },
+    { title: "Escrow for builds", body: "Custom work is paid only on delivery" },
+  ];
 
   return (
     <PageTransition>
@@ -171,15 +181,17 @@ export default async function Home({ searchParams }: HomeProps) {
                     <span className="animate-pulse-ring absolute inline-flex h-full w-full rounded-full bg-cyan-300" />
                     <span className="relative inline-flex h-2 w-2 rounded-full bg-cyan-300" />
                   </span>
-                  {activeCount} AI-built businesses live right now
+                  {activeCount > 0
+                    ? `${activeCount} SaaS app${activeCount === 1 ? "" : "s"} for sale right now`
+                    : "Now open — founding sellers welcome"}
                 </span>
               </Reveal>
 
               <h1 className="mt-6 text-5xl font-bold leading-[1.02] text-white sm:text-6xl lg:text-7xl">
-                <SplitText text="Buy an AI-built business." />
+                <SplitText text="Buy a working SaaS app." />
                 <br />
                 <SplitText
-                  text="Or have one built."
+                  text="Or get one built for you."
                   wordClassName="text-gradient"
                   delay={0.35}
                 />
@@ -187,9 +199,10 @@ export default async function Home({ searchParams }: HomeProps) {
 
               <Reveal delay={0.6}>
                 <p className="text-muted mt-6 max-w-xl text-lg">
-                  Every listing is verified by an AI agent that actually runs the
-                  app. Payments split automatically between seller and platform
-                  via PayPal.
+                  AgentBay is a marketplace for software made with AI. Buy a
+                  complete app — source code, brand and docs — after an AI agent
+                  has tested it, or post a brief and hire a developer with your
+                  payment held in PayPal escrow until delivery.
                 </p>
               </Reveal>
 
@@ -250,16 +263,25 @@ export default async function Home({ searchParams }: HomeProps) {
         <section className="relative mx-auto -mt-10 max-w-6xl px-4">
           <Reveal>
             <div className="glass-strong grid grid-cols-2 divide-white/10 rounded-3xl md:grid-cols-4 md:divide-x">
-              {stats.map((s) => (
-                <div key={s.label} className="px-6 py-7 text-center">
-                  <AnimatedCounter
-                    value={s.value}
-                    format={s.format}
-                    className="text-gradient-soft font-[family-name:var(--font-display)] text-3xl font-bold md:text-4xl"
-                  />
-                  <p className="text-dim mt-1 text-xs uppercase tracking-[0.18em]">{s.label}</p>
-                </div>
-              ))}
+              {hasActivity
+                ? stats.map((s) => (
+                    <div key={s.label} className="px-6 py-7 text-center">
+                      <AnimatedCounter
+                        value={s.value}
+                        format={s.format}
+                        className="text-gradient-soft font-[family-name:var(--font-display)] text-3xl font-bold md:text-4xl"
+                      />
+                      <p className="text-dim mt-1 text-xs uppercase tracking-[0.18em]">{s.label}</p>
+                    </div>
+                  ))
+                : guarantees.map((g) => (
+                    <div key={g.title} className="px-6 py-7 text-center">
+                      <p className="text-gradient-soft font-[family-name:var(--font-display)] text-xl font-bold md:text-2xl">
+                        {g.title}
+                      </p>
+                      <p className="text-dim mt-1 text-xs">{g.body}</p>
+                    </div>
+                  ))}
             </div>
           </Reveal>
         </section>
@@ -347,12 +369,41 @@ export default async function Home({ searchParams }: HomeProps) {
 
           {listings.length === 0 ? (
             <Reveal>
-              <div className="glass rounded-3xl p-14 text-center">
-                <p className="text-muted">No listings yet.</p>
-                <Link href="/listings/new" className="btn-primary mt-5">
-                  List the first AI-built app
-                </Link>
-              </div>
+              {query ? (
+                // Search with no hits — suggest broadening or asking the agent.
+                <div className="glass rounded-3xl p-14 text-center">
+                  <p className="font-semibold text-white">Nothing matches “{query}” yet.</p>
+                  <p className="text-muted mx-auto mt-2 max-w-md text-sm">
+                    Try a broader search, or post a request and let developers build exactly what you need.
+                  </p>
+                  <div className="mt-6 flex flex-wrap justify-center gap-3">
+                    <Link href="/#listings" className="btn-ghost">
+                      Clear search
+                    </Link>
+                    <Link href="/requests/new" className="btn-primary">
+                      Post a custom request
+                    </Link>
+                  </div>
+                </div>
+              ) : (
+                // Brand-new marketplace — invite both sides honestly.
+                <div className="glass rounded-3xl p-10 text-center md:p-14">
+                  <p className="eyebrow">Just launched</p>
+                  <h3 className="mt-3 text-2xl font-bold text-white">The first listings are on their way.</h3>
+                  <p className="text-muted mx-auto mt-3 max-w-lg text-sm">
+                    Built something with AI? List it in about a minute — the AI writes the listing from your
+                    repo or demo URL. Looking to buy? Post what you need and developers will send offers.
+                  </p>
+                  <div className="mt-7 flex flex-wrap justify-center gap-3">
+                    <Link href="/listings/new" className="btn-primary">
+                      Become a founding seller →
+                    </Link>
+                    <Link href="/requests/new" className="btn-ghost">
+                      Post a custom request
+                    </Link>
+                  </div>
+                </div>
+              )}
             </Reveal>
           ) : (
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">

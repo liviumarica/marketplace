@@ -10,15 +10,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { requireUser } from "@/lib/auth";
+import { emailVerificationRequired, requireUser } from "@/lib/auth";
 import { createSaleOrder } from "@/lib/paypal";
 import { env } from "@/lib/env";
 import { platformFee } from "@/lib/money";
+import { isPayoutReady, SELLER_NOT_PAYOUT_READY } from "@/lib/payout";
 
 const schema = z.object({ listingId: z.string().min(1) });
 
 export async function POST(req: NextRequest) {
   const user = await requireUser();
+  // Transacting requires a confirmed email address (anti-impersonation).
+  const blocked = emailVerificationRequired(user);
+  if (blocked) return blocked;
   const parsed = schema.safeParse(await req.json());
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid input" }, { status: 400 });
@@ -40,16 +44,11 @@ export async function POST(req: NextRequest) {
       { status: 400 },
     );
   }
-  // In multi_unit mode the seller MUST have a PayPal merchant id to receive
-  // their share; in payout mode we need at least their PayPal email.
-  if (
-    env.paypalSplitMode === "multi_unit" &&
-    !listing.seller.paypalMerchantId
-  ) {
-    return NextResponse.json(
-      { error: "Seller has not connected a PayPal merchant account" },
-      { status: 400 },
-    );
+  // The seller must be able to receive their share (merchant id in
+  // multi_unit mode, PayPal email in payout mode) — sellers may publish
+  // before adding these, so this is where it is enforced.
+  if (!isPayoutReady(listing.seller)) {
+    return NextResponse.json({ error: SELLER_NOT_PAYOUT_READY }, { status: 409 });
   }
 
   const feeCents = platformFee(listing.priceCents, env.platformFeeBps);
