@@ -6,6 +6,7 @@
  */
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { blockNonDecimalKeys, blockNonIntegerKeys, parseDays, parseUsdToCents } from "@/lib/number-input";
 
 export function OfferForm({ requestId }: { requestId: string }) {
   const router = useRouter();
@@ -17,14 +18,21 @@ export function OfferForm({ requestId }: { requestId: string }) {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    setLoading(true);
     setStatus(null);
+    // Reject "e1", negatives, decimals in day counts… before calling the API.
+    const price = parseUsdToCents(priceUsd, { minUsd: 10 });
+    const delivery = parseDays(days);
+    if ("error" in price || "error" in delivery) {
+      setStatus(`error:${"error" in price ? price.error : (delivery as { error: string }).error}`);
+      return;
+    }
+    setLoading(true);
     const res = await fetch(`/api/requests/${requestId}/offers`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        priceCents: Math.round(parseFloat(priceUsd) * 100),
-        deliveryDays: parseInt(days, 10),
+        priceCents: price.cents,
+        deliveryDays: delivery.days,
         message,
       }),
     });
@@ -51,9 +59,11 @@ export function OfferForm({ requestId }: { requestId: string }) {
             <input
               required
               type="number"
+              inputMode="decimal"
               min="10"
               step="1"
               value={priceUsd}
+              onKeyDown={blockNonDecimalKeys}
               onChange={(e) => setPriceUsd(e.target.value)}
               className="field"
             />
@@ -63,8 +73,11 @@ export function OfferForm({ requestId }: { requestId: string }) {
             <input
               required
               type="number"
+              inputMode="numeric"
               min="1"
+              max="365"
               value={days}
+              onKeyDown={blockNonIntegerKeys}
               onChange={(e) => setDays(e.target.value)}
               className="field"
             />

@@ -8,7 +8,9 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getSessionUser } from "@/lib/auth";
 import { formatUsd } from "@/lib/money";
+import { env } from "@/lib/env";
 import { isPayoutReady, missingPayoutField } from "@/lib/payout";
+import { listingStatusLabel, toneClass, verificationLabel } from "@/lib/listing-status";
 import { SalesGrid, type OrderRow } from "@/components/SalesGrid";
 import { BookingsCalendar } from "@/components/BookingsCalendar";
 import { PageTransition } from "@/components/fx/PageTransition";
@@ -239,29 +241,35 @@ export default async function DashboardPage() {
                           </Link>
                         </td>
                         <td className="px-5 py-3 font-mono text-white/80">{formatUsd(l.priceCents)}</td>
-                        <td className="px-5 py-3">
-                          <span className={`chip ${l.status === "ACTIVE" ? "chip-green" : ""}`}>{l.status}</span>
-                        </td>
-                        <td className="px-5 py-3">
-                          <span
-                            className={`chip ${
-                              l.verificationStatus === "PASSED"
-                                ? "chip-green"
-                                : l.verificationStatus === "RUNNING"
-                                  ? "chip-amber"
-                                  : l.verificationStatus === "FAILED"
-                                    ? "chip-rose"
-                                    : ""
-                            }`}
-                          >
-                            {l.verificationStatus}
-                          </span>
-                        </td>
+                        {/* Human labels (with tooltips) instead of raw enums. */}
+                        {(() => {
+                          const s = listingStatusLabel(l.status);
+                          const v = verificationLabel(l.verificationStatus, l.aiQualityScore);
+                          return (
+                            <>
+                              <td className="px-5 py-3">
+                                <span className={`chip ${toneClass(s.tone)}`} title={s.hint}>{s.label}</span>
+                              </td>
+                              <td className="px-5 py-3">
+                                <span className={`chip ${toneClass(v.tone)}`} title={v.hint}>{v.label}</span>
+                              </td>
+                            </>
+                          );
+                        })()}
                         <td className="px-5 py-3 font-mono text-white/70">{l.views}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
+                {/* Explains the verification column so "Not verified" isn't a mystery. */}
+                <p className="text-dim border-t border-white/10 px-5 py-3 text-xs">
+                  <strong className="text-white/70">AI verification</strong> is optional: when a listing has a
+                  live demo URL, an AI agent opens it in a real browser, tests it and gives it a quality score.
+                  Passing earns an “AI verified” badge buyers can see.{" "}
+                  {env.kernelApiKey
+                    ? "Open a listing to start or retry it."
+                    : "It isn't switched on for this marketplace yet, so listings go live without it."}
+                </p>
               </div>
             )}
           </section>
@@ -294,13 +302,21 @@ export default async function DashboardPage() {
           </Reveal>
         )}
 
-        {/* Demo bookings — Bryntum calendar */}
+        {/* Demo bookings — Bryntum calendar, only when there is something to
+            show; an empty full-size calendar just adds noise. */}
         <Reveal>
           <section className="mt-12">
             <h2 className="mb-4 text-xl font-semibold text-white">Demo bookings</h2>
-            <div className="glass rounded-2xl p-3">
-              <BookingsCalendar events={calendarEvents} />
-            </div>
+            {calendarEvents.length === 0 ? (
+              <p className="glass text-muted rounded-2xl px-6 py-5 text-sm">
+                No demo calls booked yet. Buyers can book a live demo from any of your listing pages — bookings will
+                show up here in a calendar.
+              </p>
+            ) : (
+              <div className="glass rounded-2xl p-3">
+                <BookingsCalendar events={calendarEvents} />
+              </div>
+            )}
           </section>
         </Reveal>
       </div>

@@ -42,6 +42,7 @@ model User {
   updatedAt DateTime @updatedAt
 
   authTokens        AuthToken[]
+  sessions          Session[]
   listings          Listing[]
   purchases         Order[]          @relation("BuyerOrders")
   sales             Order[]          @relation("SellerOrders")
@@ -50,6 +51,22 @@ model User {
   customOrdersAsDev CustomOrder[]    @relation("DevOrders")
   demoBookings      DemoBooking[]
   notifications     Notification[]
+}
+
+// =============================================================================
+// SESSIONS — one row per signed-in browser. The session JWT carries this
+// row's id; deleting the row (logout, password reset) revokes that session
+// on the server immediately, even if someone still holds a copy of the token.
+// =============================================================================
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 // =============================================================================

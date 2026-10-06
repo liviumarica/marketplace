@@ -8,6 +8,7 @@ import { after, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/auth";
 import { runListingVerification } from "@/lib/kernel";
+import { env } from "@/lib/env";
 
 export const maxDuration = 300;
 
@@ -29,6 +30,13 @@ export async function POST(
     return NextResponse.json(
       { error: "Add a demo URL to run verification" },
       { status: 400 },
+    );
+  }
+  // Platform-side requirement: without KERNEL the run could only fail.
+  if (!env.kernelApiKey) {
+    return NextResponse.json(
+      { error: "AI verification is not available on this marketplace right now." },
+      { status: 503 },
     );
   }
   if (listing.verificationStatus === "RUNNING") {

@@ -112,7 +112,8 @@ export function SettingsForms({ initial }: { initial: SettingsInitial }) {
   return (
     <div className="mt-10 space-y-8">
       {/* ================= Profile ================= */}
-      <Reveal>
+      {/* y={0}: fade only — fields must never move under the cursor */}
+      <Reveal y={0}>
         <form onSubmit={saveProfile} className="glass space-y-5 rounded-3xl p-7">
           <h2 className="text-xl font-semibold text-white">Profile</h2>
 
@@ -156,7 +157,8 @@ export function SettingsForms({ initial }: { initial: SettingsInitial }) {
       </Reveal>
 
       {/* ================= Payouts ================= */}
-      <Reveal delay={0.08}>
+      {/* y={0}: fade only — fields must never move under the cursor */}
+      <Reveal y={0} delay={0.08}>
         <form id="payouts" onSubmit={savePayouts} className="glass scroll-mt-28 space-y-5 rounded-3xl p-7">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-xl font-semibold text-white">PayPal payouts</h2>
@@ -200,7 +202,8 @@ export function SettingsForms({ initial }: { initial: SettingsInitial }) {
       </Reveal>
 
       {/* ================= Security ================= */}
-      <Reveal delay={0.16}>
+      {/* y={0}: fade only — fields must never move under the cursor */}
+      <Reveal y={0} delay={0.16}>
         <form onSubmit={changePassword} className="glass space-y-5 rounded-3xl p-7">
           <h2 className="text-xl font-semibold text-white">Password</h2>
           <label className="field-label">

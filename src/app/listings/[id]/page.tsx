@@ -18,6 +18,8 @@ import { hueFor } from "@/lib/hue";
 import { isPayoutReady, missingPayoutField, SELLER_NOT_PAYOUT_READY } from "@/lib/payout";
 import { BuyWithPayPal } from "@/components/BuyWithPayPal";
 import { DemoScheduler } from "@/components/DemoScheduler";
+import { VerificationPanel } from "@/components/VerificationPanel";
+import { listingStatusLabel, toneClass } from "@/lib/listing-status";
 import { PriceBenchmark } from "@/components/PriceBenchmark";
 import { PageTransition } from "@/components/fx/PageTransition";
 import { Reveal } from "@/components/fx/Reveal";
@@ -102,7 +104,14 @@ export default async function ListingDetailPage({ params }: PageProps) {
                     AI verification in progress…
                   </span>
                 )}
-                <span className="chip">{listing.status}</span>
+                {(() => {
+                  const s = listingStatusLabel(listing.status);
+                  return (
+                    <span className={`chip ${toneClass(s.tone)}`} title={s.hint}>
+                      {s.label}
+                    </span>
+                  );
+                })()}
               </div>
 
               <ViewTransition name={`listing-title-${listing.id}`} share="morph" default="none">
@@ -300,6 +309,14 @@ export default async function ListingDetailPage({ params }: PageProps) {
                 ) : isOwner ? (
                   <div className="space-y-3">
                     <p className="alert-info text-center">This is your listing</p>
+                    {/* Owner-only: what AI verification is + start / retry. */}
+                    <VerificationPanel
+                      listingId={listing.id}
+                      status={listing.verificationStatus}
+                      score={listing.aiQualityScore}
+                      hasDemoUrl={Boolean(listing.demoUrl)}
+                      enabled={Boolean(env.kernelApiKey)}
+                    />
                     {/* Nudge the owner to finish payout setup so buyers can pay. */}
                     {!sellerPayoutReady && listing.status !== "SOLD" && (
                       <p className="alert-error text-center text-sm">

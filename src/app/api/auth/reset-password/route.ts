@@ -10,7 +10,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { clearSessionCookie, consumeAuthToken, hashPassword } from "@/lib/auth";
+import { clearSessionCookie, consumeAuthToken, hashPassword, revokeAllSessions } from "@/lib/auth";
 
 const schema = z.object({
   token: z.string().min(1),
@@ -46,6 +46,8 @@ export async function POST(req: NextRequest) {
   });
   // Any other outstanding reset links for this user are now pointless.
   await prisma.authToken.deleteMany({ where: { userId, type: "PASSWORD_RESET", usedAt: null } });
+  // Sign the account out on every device (server-side session rows).
+  await revokeAllSessions(userId);
 
   // The browser doing the reset may hold an old session — drop it too.
   await clearSessionCookie();

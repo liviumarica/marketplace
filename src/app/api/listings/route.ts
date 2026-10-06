@@ -10,6 +10,7 @@ import { prisma } from "@/lib/prisma";
 import { emailVerificationRequired, requireUser } from "@/lib/auth";
 import { runListingVerification } from "@/lib/kernel";
 import { indexListing } from "@/lib/elastic";
+import { env } from "@/lib/env";
 
 export const maxDuration = 300;
 
@@ -20,7 +21,12 @@ const createSchema = z.object({
   category: z.string().min(1),
   techStack: z.array(z.string()).default([]),
   features: z.array(z.string()).default([]),
-  priceCents: z.number().int().positive(),
+  // $1 – $10M, whole cents. NaN/null (e.g. from "e1") fails with a clear message.
+  priceCents: z
+    .number({ invalid_type_error: "Enter a valid price in USD", required_error: "Enter a price in USD" })
+    .int("Price can have at most 2 decimals")
+    .min(100, "The price must be at least $1")
+    .max(1_000_000_000, "The price can't be more than $10,000,000"),
   demoUrl: z.string().url().optional().or(z.literal("")),
   repoUrl: z.string().url().optional().or(z.literal("")),
   screenshots: z.array(z.string()).default([]),
@@ -80,12 +86,22 @@ export async function POST(req: NextRequest) {
   }
   const parsed = createSchema.safeParse(await req.json());
   if (!parsed.success) {
+    // Surface the first human-readable problem (e.g. the price message).
+    const first = parsed.error.issues[0];
     return NextResponse.json(
-      { error: "Invalid input", details: parsed.error.flatten() },
+      {
+        error: first?.message ?? "Invalid input",
+        details: parsed.error.flatten(),
+      },
       { status: 400 },
     );
   }
   const d = parsed.data;
+
+  // The verification agent can only run with a demo URL AND a configured
+  // KERNEL key. Without either, the listing is published directly (marked
+  // "not verified") instead of waiting forever for a run that can't happen.
+  const canVerify = Boolean(d.demoUrl && env.kernelApiKey);
 
   const listing = await prisma.listing.create({
     data: {
@@ -101,15 +117,15 @@ export async function POST(req: NextRequest) {
       demoUrl: d.demoUrl || null,
       repoUrl: d.repoUrl || null,
       screenshots: JSON.stringify(d.screenshots),
-      // A demo URL means the verification agent can run — go to PENDING_REVIEW;
-      // otherwise the listing is activated directly (verification is a bonus).
-      status: d.demoUrl ? "PENDING_REVIEW" : "ACTIVE",
+      // Verifiable → PENDING_REVIEW until the agent passes it; otherwise the
+      // listing is activated directly (verification is a bonus).
+      status: canVerify ? "PENDING_REVIEW" : "ACTIVE",
     },
   });
 
-  // A demo URL means the KERNEL verification agent can run — kick it off in
-  // the background; the listing page shows progress and publishes on PASSED.
-  if (listing.demoUrl) {
+  // Kick off the KERNEL verification agent in the background; the listing
+  // page shows progress and publishes on PASSED.
+  if (canVerify) {
     after(() => runListingVerification(listing.id));
   }
 

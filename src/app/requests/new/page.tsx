@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 import { PageTransition } from "@/components/fx/PageTransition";
 import { PageHeader } from "@/components/fx/PageHeader";
 import { Reveal } from "@/components/fx/Reveal";
+import { blockNonDecimalKeys, blockNonIntegerKeys, parseDays, parseUsdToCents } from "@/lib/number-input";
 
 export default function NewRequestPage() {
   const router = useRouter();
@@ -44,8 +45,15 @@ export default function NewRequestPage() {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    setBusy("submit");
     setStatus(null);
+    // Reject "e1", negatives, fractional days… before calling the API.
+    const budget = parseUsdToCents(budgetUsd, { minUsd: 10, label: "budget" });
+    const deadline = parseDays(deadlineDays);
+    if ("error" in budget || "error" in deadline) {
+      setStatus(`error:${"error" in budget ? budget.error : (deadline as { error: string }).error}`);
+      return;
+    }
+    setBusy("submit");
     const res = await fetch("/api/requests", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -53,8 +61,8 @@ export default function NewRequestPage() {
         title,
         brief,
         refinedBrief: refinedBrief || undefined,
-        budgetCents: Math.round(parseFloat(budgetUsd) * 100),
-        deadlineDays: parseInt(deadlineDays, 10),
+        budgetCents: budget.cents,
+        deadlineDays: deadline.days,
         category,
       }),
     });
@@ -78,7 +86,8 @@ export default function NewRequestPage() {
         subtitle="Describe the app you need. Developers will send offers; your payment is held in PayPal escrow and only released when you accept the delivery."
       />
 
-      <Reveal delay={0.25}>
+      {/* y={0}: fade only — fields must never move under the cursor */}
+      <Reveal y={0} delay={0.25}>
       <form onSubmit={submit} className="glass mt-10 space-y-5 rounded-3xl p-7">
         <label className="field-label">
           Title *
@@ -143,9 +152,11 @@ export default function NewRequestPage() {
             <input
               required
               type="number"
+              inputMode="decimal"
               min="10"
               step="1"
               value={budgetUsd}
+              onKeyDown={blockNonDecimalKeys}
               onChange={(e) => setBudgetUsd(e.target.value)}
               className="field"
             />
@@ -157,7 +168,9 @@ export default function NewRequestPage() {
               type="number"
               min="1"
               max="365"
+              inputMode="numeric"
               value={deadlineDays}
+              onKeyDown={blockNonIntegerKeys}
               onChange={(e) => setDeadlineDays(e.target.value)}
               className="field"
             />

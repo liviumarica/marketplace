@@ -13,6 +13,7 @@ import {
   createSessionToken,
   getSessionUser,
   hashPassword,
+  revokeAllSessions,
   setSessionCookie,
   verifyPassword,
 } from "@/lib/auth";
@@ -47,7 +48,9 @@ export async function POST(req: NextRequest) {
       sessionVersion: { increment: 1 },
     },
   });
-  // New token carries the new sessionVersion → this browser stays signed in.
+  // Drop every existing session (other devices), then start a fresh one for
+  // this browser so the user stays signed in here.
+  await revokeAllSessions(user.id);
   await setSessionCookie(await createSessionToken(updated));
   return NextResponse.json({ ok: true });
 }

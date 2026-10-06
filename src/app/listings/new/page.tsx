@@ -15,6 +15,7 @@ import { useRouter } from "next/navigation";
 import { PageTransition } from "@/components/fx/PageTransition";
 import { PageHeader } from "@/components/fx/PageHeader";
 import { Reveal } from "@/components/fx/Reveal";
+import { blockNonDecimalKeys, parseUsdToCents } from "@/lib/number-input";
 
 const CATEGORIES = [
   "Productivity",
@@ -62,12 +63,14 @@ export default function NewListingPage() {
   // Pre-fill payout details already stored on the profile so returning
   // sellers don't retype them (and so we never overwrite them with blanks).
   useEffect(() => {
-    fetch("/api/auth/me")
+    // no-store: always the CURRENT session's profile, never a cached answer.
+    fetch("/api/auth/me", { cache: "no-store" })
       .then((r) => r.json())
       .then(({ user }) => {
         if (!user) return;
-        setPaypalEmail(user.paypalEmail ?? "");
-        setPaypalMerchantId(user.paypalMerchantId ?? "");
+        // Functional updates: never overwrite something typed meanwhile.
+        setPaypalEmail((cur) => cur || (user.paypalEmail ?? ""));
+        setPaypalMerchantId((cur) => cur || (user.paypalMerchantId ?? ""));
         setHasSavedPayout(Boolean(user.paypalEmail || user.paypalMerchantId));
       })
       .catch(() => {
@@ -137,8 +140,15 @@ export default function NewListingPage() {
   /** Save PayPal payout details (if provided) then create the listing. */
   async function submit(e: React.FormEvent) {
     e.preventDefault();
-    setBusy("submit");
     setStatus(null);
+
+    // Validate the price first — "e1", "-5" or "" must never reach the API.
+    const price = parseUsdToCents(priceUsd);
+    if ("error" in price) {
+      setStatus(`error:${price.error}`);
+      return;
+    }
+    setBusy("submit");
 
     // Persist the seller's PayPal identity only when something was entered —
     // blank fields are skipped so saved details are never wiped.
@@ -170,7 +180,7 @@ export default function NewListingPage() {
         category,
         techStack: techStack.split(",").map((s) => s.trim()).filter(Boolean),
         features: features.split("\n").map((s) => s.trim()).filter(Boolean),
-        priceCents: Math.round(parseFloat(priceUsd) * 100),
+        priceCents: price.cents,
         demoUrl,
         repoUrl,
       }),
@@ -232,7 +242,8 @@ export default function NewListingPage() {
         </section>
       </Reveal>
 
-      <Reveal delay={0.3}>
+      {/* y={0}: fade only — fields must never move under the cursor */}
+      <Reveal y={0} delay={0.3}>
       <form onSubmit={submit} className="glass mt-8 space-y-5 rounded-3xl p-7">
         <div className="grid gap-4 sm:grid-cols-2">
           <label className="field-label">
@@ -329,9 +340,12 @@ export default function NewListingPage() {
             <input
               required
               type="number"
+              inputMode="decimal"
               min="1"
               step="0.01"
+              placeholder="e.g. 499"
               value={priceUsd}
+              onKeyDown={blockNonDecimalKeys}
               onChange={(e) => setPriceUsd(e.target.value)}
               className="field"
             />

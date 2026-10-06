@@ -37,9 +37,20 @@ export function BookingsCalendar({ events }: { events: BookingEvent[] }) {
           import("@bryntum/calendar-trial/fontawesome/css/solid.css" as string),
         ]).catch(() => {});
         if (destroyed || !ref.current) return;
+        // Open on the next upcoming booking (or the first one), not "today".
+        const now = Date.now();
+        const focus =
+          events.find((e) => new Date(e.startDate).getTime() >= now)?.startDate ?? events[0]?.startDate;
         calendar = new mod.Calendar({
           appendTo: ref.current,
-          height: 480,
+          height: 520,
+          // Month view: one compact grid of days. The default week/day views
+          // render every small time slot and overwhelm a dashboard panel.
+          mode: "month",
+          // No side panel (mini-calendar + filters) — not needed for a list
+          // of a few demo calls.
+          sidebar: false,
+          ...(focus ? { date: new Date(focus) } : {}),
           modes: { agenda: null }, // keep the calendar modes simple
           events: events.map((e) => ({
             id: e.id,

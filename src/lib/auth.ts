@@ -1,16 +1,19 @@
 /**
  * Authentication — lightweight session management.
  *
- * Sessions are stateless JWTs stored in an httpOnly cookie, signed with
- * AUTH_SECRET using `jose`. Passwords are hashed with bcrypt. This keeps the
- * hackathon demo fully self-contained (no external auth provider needed)
- * while remaining a real, working auth system — no simulation.
+ * Sessions are server-side: every sign-in creates a `Session` row, and the
+ * httpOnly cookie holds a JWT (signed with AUTH_SECRET via `jose`) that
+ * carries that row's id. A request is authenticated only if the signature is
+ * valid AND the row still exists and hasn't expired — so logging out deletes
+ * the row and the session is dead on the server immediately, even for a
+ * copied cookie or a tab that was open before. Passwords are hashed with
+ * bcrypt. No external auth provider, no simulation.
  *
  * On top of the session this module also owns:
  *   - single-use email tokens (email verification + password reset), stored
  *     only as SHA-256 hashes,
- *   - session revocation through `User.sessionVersion` (bumped on password
- *     reset / change so stolen or forgotten sessions stop working),
+ *   - "sign out everywhere" (password reset / change) — deletes all session
+ *     rows of the user and bumps `User.sessionVersion` as a second guard,
  *   - the "email must be verified" gate used by transactional API routes.
  */
 import { createHash, randomBytes } from "node:crypto";
@@ -34,8 +37,10 @@ export interface SessionPayload {
   userId: string;
   email: string;
   role: string;
-  /** Snapshot of User.sessionVersion at login time (absent on old tokens). */
+  /** Snapshot of User.sessionVersion at login time. */
   sv?: number;
+  /** Id of the server-side Session row (tokens without it are rejected). */
+  sid?: string;
 }
 
 /**
@@ -53,18 +58,45 @@ function sessionCookieOptions() {
   };
 }
 
-/** Create a signed session JWT for a user. */
+/**
+ * Start a new server-side session for `user` and return its signed JWT.
+ * Also prunes this user's expired session rows so the table stays small.
+ */
 export async function createSessionToken(user: User): Promise<string> {
+  const expiresAt = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000);
+  const [, session] = await prisma.$transaction([
+    prisma.session.deleteMany({ where: { userId: user.id, expiresAt: { lt: new Date() } } }),
+    prisma.session.create({ data: { userId: user.id, expiresAt } }),
+  ]);
   return new SignJWT({
     userId: user.id,
     email: user.email,
     role: user.role,
     sv: user.sessionVersion,
+    sid: session.id,
   })
     .setProtectedHeader({ alg: "HS256" })
     .setIssuedAt()
-    .setExpirationTime(`${SESSION_DAYS}d`)
+    .setExpirationTime(expiresAt)
     .sign(secretKey());
+}
+
+/** Verify the cookie's JWT and return its payload, or null if invalid. */
+async function readSessionPayload(): Promise<SessionPayload | null> {
+  const store = await cookies();
+  const token = store.get(COOKIE_NAME)?.value;
+  if (!token) return null;
+  try {
+    const { payload } = await jwtVerify<SessionPayload>(token, secretKey());
+    return payload;
+  } catch {
+    return null; // expired / tampered token — treat as logged out
+  }
+}
+
+/** Revoke every session of a user ("sign out on all devices"). */
+export async function revokeAllSessions(userId: string): Promise<void> {
+  await prisma.session.deleteMany({ where: { userId } });
 }
 
 /** Persist the session token in an httpOnly cookie. */
@@ -77,11 +109,17 @@ export async function setSessionCookie(token: string): Promise<void> {
 }
 
 /**
- * Clear the session cookie (logout). Uses the same attributes as
+ * Log out: delete the current session row on the server (so the token is
+ * useless even if a copy survives in another tab or tool), then clear the
+ * cookie. The cookie is cleared with the same attributes as
  * `setSessionCookie`, an empty value, an epoch expiry AND Max-Age=0 so every
  * browser drops it immediately.
  */
 export async function clearSessionCookie(): Promise<void> {
+  const payload = await readSessionPayload();
+  if (payload?.sid) {
+    await prisma.session.deleteMany({ where: { id: payload.sid } });
+  }
   const store = await cookies();
   store.set(COOKIE_NAME, "", {
     ...sessionCookieOptions(),
@@ -92,22 +130,28 @@ export async function clearSessionCookie(): Promise<void> {
 
 /**
  * Return the currently authenticated user, or null.
- * Verifies the JWT signature, then loads a fresh user row so that role /
- * PayPal changes take effect without re-login. Tokens issued before the
- * user's last password reset/change (older sessionVersion) are rejected.
+ * Verifies the JWT signature, then loads the session row together with a
+ * fresh user row (so role / PayPal changes apply without re-login). The
+ * request is anonymous when the row was deleted (logout / revoked), has
+ * expired, belongs to someone else, or predates a password change.
+ * Legacy tokens without a session id are rejected.
  */
 export async function getSessionUser(): Promise<User | null> {
-  const store = await cookies();
-  const token = store.get(COOKIE_NAME)?.value;
-  if (!token) return null;
-  try {
-    const { payload } = await jwtVerify<SessionPayload>(token, secretKey());
-    const user = await prisma.user.findUnique({ where: { id: payload.userId } });
-    if (!user || (payload.sv ?? 0) !== user.sessionVersion) return null;
-    return user;
-  } catch {
-    return null; // expired / tampered token — treat as logged out
+  const payload = await readSessionPayload();
+  if (!payload?.sid) return null;
+  const session = await prisma.session.findUnique({
+    where: { id: payload.sid },
+    include: { user: true },
+  });
+  if (
+    !session ||
+    session.expiresAt <= new Date() ||
+    session.userId !== payload.userId ||
+    (payload.sv ?? 0) !== session.user.sessionVersion
+  ) {
+    return null;
   }
+  return session.user;
 }
 
 /** Same as getSessionUser but throws — for routes that require a session. */
