@@ -5,8 +5,21 @@
  *  - one buyer
  *  - several ACTIVE listings for AI-built SaaS apps
  *
- * Demo logins (all password "password123"):
- *   admin@agentbay.dev, alex@seller.dev, maria@seller.dev, bob@buyer.dev
+ * Demo logins: admin@agentbay.dev, alex@seller.dev, maria@seller.dev, bob@buyer.dev
+ *
+ * Passwords:
+ *   - local SQLite: "password123" for every account (convenient for dev),
+ *   - hosted PostgreSQL (production): taken from SEED_ADMIN_PASSWORD (admin)
+ *     and SEED_DEMO_PASSWORD (alex / maria / bob). Both are REQUIRED there,
+ *     must be at least 12 characters and must not be "password123" — the
+ *     script aborts otherwise, so public README credentials can never end
+ *     up guarding a live deployment.
+ * Re-running the seed resets the demo passwords to the given values and
+ * signs out existing sessions of those accounts.
+ *
+ * Demo listings / custom request are fabricated sample content (fake demo
+ * URLs and verification scores). They are created locally, but on
+ * PostgreSQL only when SEED_DEMO_CONTENT=true is set explicitly.
  *
  * Run with: npm run db:seed
  */
@@ -16,8 +29,31 @@ import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
 
+/** Same detection rule as prisma.config.ts. */
+const isPostgres = /^postgres(ql)?:\/\//.test(process.env.DATABASE_URL || "");
+
+/**
+ * Resolve the password for a group of demo accounts. Local dev falls back to
+ * "password123"; PostgreSQL requires a strong value from the environment.
+ */
+function demoPassword(envName: "SEED_ADMIN_PASSWORD" | "SEED_DEMO_PASSWORD"): string {
+  const value = process.env[envName];
+  if (!isPostgres) return value || "password123";
+  if (!value || value.length < 12 || value === "password123") {
+    throw new Error(
+      `${envName} must be set to a strong password (min 12 characters, not "password123") when seeding PostgreSQL.`,
+    );
+  }
+  return value;
+}
+
 async function main() {
-  const passwordHash = await bcrypt.hash("password123", 10);
+  // Admin gets its own password: it can see every transaction and fee.
+  const adminPasswordHash = await bcrypt.hash(demoPassword("SEED_ADMIN_PASSWORD"), 10);
+  const passwordHash = await bcrypt.hash(demoPassword("SEED_DEMO_PASSWORD"), 10);
+  // Applied on every run so existing accounts get the new password and all
+  // their previously issued sessions are invalidated.
+  const passwordReset = (hash: string) => ({ passwordHash: hash, sessionVersion: { increment: 1 } });
 
   // ---------------------------------------------------------------- users
   // Real sandbox accounts (PayPal developer dashboard > Sandbox > Accounts):
@@ -28,6 +64,7 @@ async function main() {
   const admin = await prisma.user.upsert({
     where: { email: "admin@agentbay.dev" },
     update: {
+      ...passwordReset(adminPasswordHash),
       paypalEmail: "sb-m9fs053148149@business.example.com",
       paypalMerchantId: process.env.PAYPAL_PLATFORM_MERCHANT_ID || null,
     },
@@ -35,7 +72,7 @@ async function main() {
       email: "admin@agentbay.dev",
       name: "AgentBay Admin",
       role: "ADMIN",
-      passwordHash,
+      passwordHash: adminPasswordHash,
       paypalEmail: "sb-m9fs053148149@business.example.com",
       paypalMerchantId: process.env.PAYPAL_PLATFORM_MERCHANT_ID || null,
     },
@@ -44,6 +81,7 @@ async function main() {
   const alex = await prisma.user.upsert({
     where: { email: "alex@seller.dev" },
     update: {
+      ...passwordReset(passwordHash),
       paypalEmail: "sb-ws8bg53096423@business.example.com",
       paypalMerchantId: process.env.PAYPAL_SELLER_MERCHANT_ID || null,
     },
@@ -62,6 +100,7 @@ async function main() {
   const maria = await prisma.user.upsert({
     where: { email: "maria@seller.dev" },
     update: {
+      ...passwordReset(passwordHash),
       paypalEmail: "sb-ws8bg53096423@business.example.com",
       paypalMerchantId: null,
     },
@@ -79,6 +118,7 @@ async function main() {
   const bob = await prisma.user.upsert({
     where: { email: "bob@buyer.dev" },
     update: {
+      ...passwordReset(passwordHash),
       paypalEmail: "sb-roi4n53159859@personal.example.com",
     },
     create: {
@@ -92,7 +132,7 @@ async function main() {
   });
 
   // Demo accounts use non-deliverable .dev addresses, so they can never click
-  // a verification link — mark them verified so they can transact locally.
+  // a verification link — mark them verified so they can transact.
   await prisma.user.updateMany({
     where: {
       id: { in: [admin.id, alex.id, maria.id, bob.id] },
@@ -100,6 +140,15 @@ async function main() {
     },
     data: { emailVerifiedAt: new Date() },
   });
+
+  // Fabricated sample content stays out of PostgreSQL unless asked for.
+  const withDemoContent = !isPostgres || process.env.SEED_DEMO_CONTENT === "true";
+  if (!withDemoContent) {
+    console.log("Seed complete (accounts only — set SEED_DEMO_CONTENT=true for sample listings):", {
+      users: [admin.email, alex.email, maria.email, bob.email],
+    });
+    return;
+  }
 
   // ------------------------------------------------------------- listings
   const listings = [
@@ -238,7 +287,8 @@ async function main() {
 
   console.log("Seed complete:", {
     users: [admin.email, alex.email, maria.email, bob.email],
-    password: "password123",
+    // Never print real passwords — only say where they came from.
+    passwords: isPostgres ? "from SEED_ADMIN_PASSWORD / SEED_DEMO_PASSWORD" : "password123",
     listings: listings.length,
   });
 }

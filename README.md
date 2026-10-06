@@ -90,7 +90,10 @@ npm run db:seed
 npm run dev        # → http://localhost:3000
 ```
 
-### Demo accounts (local seed only — all passwords `password123`, pre-verified)
+### Demo accounts (pre-verified)
+
+Locally (SQLite) every demo account uses the password `password123`. On the hosted PostgreSQL database the seed **refuses** that password: the admin password comes from `SEED_ADMIN_PASSWORD` and the other three from `SEED_DEMO_PASSWORD` (12+ characters each). Production passwords are not documented here.
+
 | Account | Role |
 |---|---|
 | `admin@agentbay.dev` | platform admin — sees all transactions + fees |
@@ -200,17 +203,21 @@ node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"
    `https://your-project.vercel.app/api/paypal/webhook`. Add the optional sponsor
    keys from `.env.example` for verification, semantic search, and benchmarking.
 
-The deployment creates an empty database. For a **sandbox demo only**, set
-`DATABASE_URL` to the hosted database in your local shell, then run:
+The deployment creates an empty database. To add the demo accounts to it, stop
+any running `next dev` (it locks the Prisma engine on Windows), then in Git Bash:
 
 ```bash
-npx prisma generate
-npm run db:seed
+export DATABASE_URL="postgresql://…"   # the hosted database (Neon)
+npx prisma generate                      # client for PostgreSQL
+SEED_ADMIN_PASSWORD="…" SEED_DEMO_PASSWORD="…" npm run db:seed
+unset DATABASE_URL
+npx prisma generate                      # back to local SQLite
 ```
 
-The seed creates the public demo logins documented above, including an admin;
-do not seed those accounts into a live-payment marketplace. Afterwards, unset
-the shell override and run `npx prisma generate` to use local SQLite again.
+On PostgreSQL the seed creates **accounts only**; add `SEED_DEMO_CONTENT=true`
+to also create the sample listings (fake demo URLs and verification scores, so
+not for a real marketplace). Re-running the seed resets the demo passwords and
+signs out their existing sessions.
 
 Background verification and Elasticsearch indexing use Next.js `after()`;
 the listing routes allow up to 300 seconds. Enable Vercel Fluid compute to
