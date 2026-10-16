@@ -9,7 +9,9 @@
  *   - a counter-rotating wireframe shell,
  *   - three glowing orbit rings,
  *   - holographic cards orbiting the core — one per REAL listing passed in
- *     from the server (title + price + category drawn onto a canvas texture),
+ *     from the server (title + price + category drawn onto a canvas texture).
+ *     Each card is interactive: hovering highlights/scales it and changes the
+ *     cursor, and clicking navigates straight to `/listings/[id]`,
  *   - a spiral galaxy of ~2,000 additive particles.
  *
  * Interaction: the whole rig tilts towards the mouse (smoothly lerped) and
@@ -17,12 +19,14 @@
  * the canvas is off-screen to save battery/GPU.
  */
 import { Canvas, useFrame, useThree } from "@react-three/fiber";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { hueFor } from "@/lib/hue";
 
 /** Data for one orbiting holographic listing card. */
 export interface HeroCard {
+  id: string;
   title: string;
   priceLabel: string;
   category: string;
@@ -90,7 +94,7 @@ function PlasmaOrb() {
   });
 
   return (
-    <mesh>
+    <mesh raycast={() => null}>
       <icosahedronGeometry args={[1.25, 48]} />
       <shaderMaterial
         ref={mat}
@@ -121,7 +125,7 @@ function WireShell() {
     ref.current.rotation.x += dt * 0.05;
   });
   return (
-    <lineSegments ref={ref} geometry={geo}>
+    <lineSegments ref={ref} geometry={geo} raycast={() => null}>
       <lineBasicMaterial color="#a78bfa" transparent opacity={0.28} blending={THREE.AdditiveBlending} />
     </lineSegments>
   );
@@ -145,7 +149,7 @@ function Ring({
   });
   return (
     <group rotation={tilt}>
-      <mesh ref={ref}>
+      <mesh ref={ref} raycast={() => null}>
         <torusGeometry args={[radius, 0.008, 8, 180]} />
         <meshBasicMaterial color={color} transparent opacity={0.85} blending={THREE.AdditiveBlending} />
       </mesh>
@@ -226,6 +230,14 @@ function makeCardTexture(card: HeroCard): THREE.CanvasTexture {
   ctx.fillStyle = "#67e8f9";
   ctx.fillText(card.priceLabel, 34, 262);
 
+  // Subtle interactive CTA cue in the bottom-right corner so users can tell
+  // the orbiting hologram can be clicked to open the listing.
+  ctx.font = "600 22px system-ui, sans-serif";
+  ctx.fillStyle = "rgba(255, 255, 255, 0.78)";
+  const ctaText = "OPEN →";
+  const ctaWidth = ctx.measureText(ctaText).width;
+  ctx.fillText(ctaText, w - ctaWidth - 36, 260);
+
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 4;
@@ -237,18 +249,30 @@ function OrbitCard({
   card,
   index,
   total,
+  onSelect,
 }: {
   card: HeroCard;
   index: number;
   total: number;
+  onSelect: (id: string) => void;
 }) {
   const ref = useRef<THREE.Mesh>(null);
   const { camera } = useThree();
+  const [hovered, setHovered] = useState(false);
   const texture = useMemo(() => makeCardTexture(card), [card]);
   // Free the GPU texture when the card unmounts.
   useEffect(() => () => texture.dispose(), [texture]);
 
+  // Reset the pointer cursor if the component unmounts while hovered.
+  useEffect(() => {
+    return () => {
+      document.body.style.cursor = "";
+    };
+  }, []);
+
   // Each card gets its own orbit radius, inclination, speed and phase.
+  // We advance the angle manually so hovering a card can smoothly pause its
+  // motion, making it effortless to click.
   const params = useMemo(() => {
     const phase = (index / total) * Math.PI * 2;
     return {
@@ -258,26 +282,47 @@ function OrbitCard({
       speed: 0.16 + (index % 3) * 0.035,
     };
   }, [index, total]);
+  const angleRef = useRef(params.phase);
 
-  useFrame(({ clock }) => {
+  useFrame(({ clock }, dt) => {
     const m = ref.current;
     if (!m) return;
-    const a = params.phase + clock.elapsedTime * params.speed;
+    // Slow down to a stop while hovered so the card doesn't slip away under the cursor.
+    const speedFactor = hovered ? 0.05 : 1;
+    angleRef.current += dt * params.speed * speedFactor;
+    const a = angleRef.current;
     // Elliptical orbit tilted by `incline`.
     const x = Math.cos(a) * params.radius;
     const z = Math.sin(a) * params.radius * 0.75;
     m.position.set(x, Math.sin(a) * params.incline * 2 + Math.sin(clock.elapsedTime + index) * 0.08, z);
     // Billboard: face the camera.
     m.quaternion.copy(camera.quaternion);
-    // Cards behind the orb fade and shrink for depth.
+    // Cards behind the orb fade and shrink for depth; hovered card pops forward.
     const depth = (z / (params.radius * 0.75) + 1) / 2; // 0 back → 1 front
-    const s = 0.75 + depth * 0.35;
-    m.scale.set(s, s, s);
-    (m.material as THREE.MeshBasicMaterial).opacity = 0.35 + depth * 0.65;
+    const targetScale = (0.75 + depth * 0.35) * (hovered ? 1.15 : 1);
+    m.scale.lerp(new THREE.Vector3(targetScale, targetScale, targetScale), 0.18);
+    (m.material as THREE.MeshBasicMaterial).opacity = hovered ? 1 : 0.35 + depth * 0.65;
   });
 
   return (
-    <mesh ref={ref}>
+    <mesh
+      ref={ref}
+      onPointerOver={(e) => {
+        e.stopPropagation();
+        setHovered(true);
+        document.body.style.cursor = "pointer";
+      }}
+      onPointerOut={(e) => {
+        e.stopPropagation();
+        setHovered(false);
+        document.body.style.cursor = "";
+      }}
+      onClick={(e) => {
+        e.stopPropagation();
+        document.body.style.cursor = "";
+        onSelect(card.id);
+      }}
+    >
       <planeGeometry args={[1.28, 0.8]} />
       <meshBasicMaterial map={texture} transparent depthWrite={false} side={THREE.DoubleSide} />
     </mesh>
@@ -341,7 +386,7 @@ function Galaxy({ count = 2200 }: { count?: number }) {
   });
 
   return (
-    <points ref={ref} rotation={[0.45, 0, 0.12]}>
+    <points ref={ref} rotation={[0.45, 0, 0.12]} raycast={() => null}>
       <bufferGeometry>
         <bufferAttribute attach="attributes-position" args={[positions, 3]} />
         <bufferAttribute attach="attributes-color" args={[colors, 3]} />
@@ -363,7 +408,7 @@ function Galaxy({ count = 2200 }: { count?: number }) {
 /* Rig: mouse parallax + scroll reaction                                      */
 /* ------------------------------------------------------------------------- */
 
-function Rig({ cards }: { cards: HeroCard[] }) {
+function Rig({ cards, onSelect }: { cards: HeroCard[]; onSelect: (id: string) => void }) {
   const group = useRef<THREE.Group>(null);
   const core = useRef<THREE.Group>(null);
   // Window-wide pointer (-1..1) so the rig reacts even when the cursor is
@@ -408,7 +453,7 @@ function Rig({ cards }: { cards: HeroCard[] }) {
       <Ring radius={2.35} color="#e879f9" tilt={[1.6, -0.5, 0.3]} speed={-0.3} />
       <Ring radius={2.6} color="#8b5cf6" tilt={[0.9, 0.7, -0.2]} speed={0.22} />
       {cards.map((c, i) => (
-        <OrbitCard key={`${c.title}-${i}`} card={c} index={i} total={cards.length} />
+        <OrbitCard key={c.id} card={c} index={i} total={cards.length} onSelect={onSelect} />
       ))}
     </group>
   );
@@ -419,6 +464,7 @@ function Rig({ cards }: { cards: HeroCard[] }) {
 /* ------------------------------------------------------------------------- */
 
 export default function HeroScene({ cards }: { cards: HeroCard[] }) {
+  const router = useRouter();
   const wrap = useRef<HTMLDivElement>(null);
   const [visible, setVisible] = useState(true);
 
@@ -443,7 +489,7 @@ export default function HeroScene({ cards }: { cards: HeroCard[] }) {
         // Shown by r3f when WebGL is unavailable.
         fallback={null}
       >
-        <Rig cards={cards} />
+        <Rig cards={cards} onSelect={(id) => router.push(`/listings/${id}`)} />
       </Canvas>
     </div>
   );

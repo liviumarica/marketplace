@@ -50,3 +50,5 @@ next-env.d.ts
 
 # Derived from the shared model schema by prisma.config.ts
 /prisma/schema.postgresql.prisma
+/videos
+/clip
