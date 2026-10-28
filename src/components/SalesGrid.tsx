@@ -60,33 +60,43 @@ const columnDefs: ColDef<OrderRow>[] = [
     field: "listingTitle",
     headerName: "Listing",
     flex: 2,
+    minWidth: 160,
     filter: "agTextColumnFilter",
   },
   {
     field: "counterparty",
     headerName: "Counterparty",
-    flex: 1,
+    flex: 1.3,
+    minWidth: 120,
     filter: "agTextColumnFilter",
   },
   {
     field: "totalCents",
     headerName: "Total",
+    flex: 1,
+    minWidth: 100,
     valueFormatter: (p) => formatUsd(p.value),
     sort: "desc",
   },
   {
     field: "sellerShareCents",
     headerName: "Seller share",
+    flex: 1,
+    minWidth: 110,
     valueFormatter: (p) => formatUsd(p.value),
   },
   {
     field: "platformFeeCents",
     headerName: "Platform fee",
+    flex: 1,
+    minWidth: 110,
     valueFormatter: (p) => formatUsd(p.value),
   },
   {
     field: "status",
     headerName: "Status",
+    flex: 0.9,
+    minWidth: 95,
     filter: "agTextColumnFilter",
     cellClass: (p) =>
       p.value === "PAID"
@@ -96,6 +106,8 @@ const columnDefs: ColDef<OrderRow>[] = [
   {
     field: "createdAt",
     headerName: "Date",
+    flex: 1.6,
+    minWidth: 170,
     valueFormatter: (p) => new Date(p.value).toLocaleString(),
     sort: "desc",
   },

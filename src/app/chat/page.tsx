@@ -15,15 +15,53 @@
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import { useEffect, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { PageTransition } from "@/components/fx/PageTransition";
 
 const SUGGESTIONS = [
-  "Find me an invoicing app under $300",
   "What AI-verified apps are for sale?",
-  "I want to buy SupportGenie — create the order",
+  "Find me a game I can stream live on YouTube",
+  "Find an AI art app under $2,000 and create the PayPal order",
   "Create a PayPal invoice for a custom build",
 ];
+
+/**
+ * Minimal inline Markdown for agent replies: **bold** and [label](https://url).
+ * Only http(s) links are turned into anchors; everything else stays plain text.
+ */
+function renderInline(text: string) {
+  const out: ReactNode[] = [];
+  const re = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)|\*\*([^*]+)\*\*/g;
+  let last = 0;
+  let k = 0;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(text)) !== null) {
+    if (m.index > last) out.push(text.slice(last, m.index));
+    if (m[1]) {
+      out.push(
+        <a
+          key={k++}
+          href={m[2]}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="font-medium text-cyan-300 underline underline-offset-2 hover:text-cyan-200"
+        >
+          {m[1]}
+        </a>,
+      );
+    } else {
+      out.push(
+        <strong key={k++} className="font-semibold text-white">
+          {m[3]}
+        </strong>,
+      );
+    }
+    last = re.lastIndex;
+  }
+  if (last < text.length) out.push(text.slice(last));
+  return out;
+}
 
 export default function ChatPage() {
   const { messages, sendMessage, status, error } = useChat({
@@ -134,7 +172,7 @@ export default function ChatPage() {
                       if (part.type === "text") {
                         return (
                           <span key={i} className="whitespace-pre-wrap">
-                            {part.text}
+                            {renderInline(part.text)}
                           </span>
                         );
                       }

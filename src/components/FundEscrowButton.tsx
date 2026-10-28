@@ -31,6 +31,7 @@ export function FundEscrowButton({
         options={{
           clientId: paypalClientId,
           currency: "USD",
+          locale: "en_US",
           intent: "authorize", // MUST match the order intent — escrow hold
           components: "buttons",
         }}
