@@ -34,6 +34,7 @@ export function BuyWithPayPal({
         options={{
           clientId: paypalClientId,
           currency: "USD",
+          locale: "en_US",
           intent: "capture",
           components: "buttons",
         }}
