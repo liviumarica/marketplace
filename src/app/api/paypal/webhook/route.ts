@@ -4,6 +4,9 @@
  * PayPal, then reconciles order state — mostly belt-and-suspenders since
  * captures are handled synchronously, but it makes the integration robust
  * (e.g. async payout status, disputes, refunds).
+ *
+ * Unsigned events are never trusted: without PAYPAL_WEBHOOK_ID the endpoint
+ * refuses every request, so nobody can forge a PAYMENT.CAPTURE.COMPLETED.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
@@ -11,8 +14,6 @@ import { verifyWebhookSignature } from "@/lib/paypal";
 import { env } from "@/lib/env";
 
 export async function POST(req: NextRequest) {
-  // Fail closed: without a configured webhook id we cannot verify
-  // anything, so reject instead of accepting unsigned events.
   const webhookId = process.env.PAYPAL_WEBHOOK_ID;
   if (!webhookId) {
     return NextResponse.json(
@@ -23,8 +24,6 @@ export async function POST(req: NextRequest) {
 
   const event = await req.json();
 
-  // Verify the transmission signature against PayPal before trusting
-  // the event payload.
   const ok = await verifyWebhookSignature({
     transmissionId: req.headers.get("paypal-transmission-id") ?? "",
     transmissionTime: req.headers.get("paypal-transmission-time") ?? "",

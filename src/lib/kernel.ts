@@ -27,7 +27,7 @@ const reportSchema = z.object({
       z.object({
         name: z.string(),
         passed: z.boolean(),
-        note: z.string().optional(),
+        note: z.string().describe("Short explanation of the result; empty string if nothing to add"),
       }),
     )
     .describe("Individual checks the agent performed"),

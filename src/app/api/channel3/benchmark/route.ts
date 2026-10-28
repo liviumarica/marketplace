@@ -1,17 +1,25 @@
 /**
- * GET /api/channel3/benchmark?q=...&category=...
- * Real call to the Channel3 product API — pulls comparable software products
- * across thousands of retailers so buyers can sanity-check the asking price
+ * GET /api/channel3/benchmark?q=...
+ * Real call to the Channel3 product API (v1 search) — pulls comparable
+ * products across retailers so buyers can sanity-check the asking price
  * against the broader market. Returns normalized benchmark stats.
+ *
+ * Channel3 moved search from /v0 to /v1 in 2026: the response is now
+ * `{ products, next_page_token }` and prices live under
+ * `products[i].offers[j].price.price`.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { env } from "@/lib/env";
 
+interface Channel3Offer {
+  price?: { price?: number; compare_at_price?: number | null; currency?: string };
+  domain?: string;
+}
+
 interface Channel3Product {
   title?: string;
-  price?: number;
-  offers?: { price?: number }[];
-  brand?: { name?: string };
+  offers?: Channel3Offer[];
+  brands?: { name?: string }[];
 }
 
 export async function GET(req: NextRequest) {
@@ -23,9 +31,15 @@ export async function GET(req: NextRequest) {
       { status: 200 },
     );
   }
+  if (!query.trim()) {
+    return NextResponse.json(
+      { configured: true, benchmark: null, error: "Missing query" },
+      { status: 400 },
+    );
+  }
 
-  // Channel3 search endpoint — returns normalized product data.
-  const res = await fetch("https://api.trychannel3.com/v0.1/products/search", {
+  // Channel3 v1 search endpoint — returns normalized product data.
+  const res = await fetch("https://api.trychannel3.com/v1/search", {
     method: "POST",
     headers: {
       "x-api-key": env.channel3ApiKey,
@@ -41,16 +55,18 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const json = (await res.json()) as {
-    products?: Channel3Product[];
-    data?: Channel3Product[];
+  const json = (await res.json()) as { products?: Channel3Product[] };
+  const products = json.products ?? [];
+
+  const priceOf = (p: Channel3Product): number | null => {
+    const v = p.offers?.[0]?.price?.price;
+    return typeof v === "number" && v > 0 ? v : null;
   };
-  const products = json.products ?? json.data ?? [];
 
   // Extract usable prices and compute benchmark stats.
   const prices = products
-    .map((p) => p.price ?? p.offers?.[0]?.price)
-    .filter((v): v is number => typeof v === "number" && v > 0)
+    .map(priceOf)
+    .filter((v): v is number => v !== null)
     .sort((a, b) => a - b);
 
   const median =
@@ -64,8 +80,8 @@ export async function GET(req: NextRequest) {
     // keep a few real product examples for transparency
     examples: products.slice(0, 4).map((p) => ({
       title: p.title ?? "Unnamed product",
-      price: p.price ?? p.offers?.[0]?.price ?? null,
-      brand: p.brand?.name ?? null,
+      price: priceOf(p),
+      brand: p.brands?.[0]?.name ?? null,
     })),
   };
 
