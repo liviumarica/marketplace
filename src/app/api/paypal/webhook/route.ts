@@ -11,26 +11,34 @@ import { verifyWebhookSignature } from "@/lib/paypal";
 import { env } from "@/lib/env";
 
 export async function POST(req: NextRequest) {
+  // Fail closed: without a configured webhook id we cannot verify
+  // anything, so reject instead of accepting unsigned events.
+  const webhookId = process.env.PAYPAL_WEBHOOK_ID;
+  if (!webhookId) {
+    return NextResponse.json(
+      { error: "Webhook not configured" },
+      { status: 503 },
+    );
+  }
+
   const event = await req.json();
 
-  // Verify the webhook signature when a webhook id is configured.
-  const webhookId = process.env.PAYPAL_WEBHOOK_ID;
-  if (webhookId) {
-    const ok = await verifyWebhookSignature({
-      transmissionId: req.headers.get("paypal-transmission-id") ?? "",
-      transmissionTime: req.headers.get("paypal-transmission-time") ?? "",
-      certUrl: req.headers.get("paypal-cert-url") ?? "",
-      authAlgo: req.headers.get("paypal-auth-algo") ?? "",
-      transmissionSig: req.headers.get("paypal-transmission-sig") ?? "",
-      webhookId,
-      event,
-    });
-    if (!ok) {
-      return NextResponse.json(
-        { error: "Invalid webhook signature" },
-        { status: 401 },
-      );
-    }
+  // Verify the transmission signature against PayPal before trusting
+  // the event payload.
+  const ok = await verifyWebhookSignature({
+    transmissionId: req.headers.get("paypal-transmission-id") ?? "",
+    transmissionTime: req.headers.get("paypal-transmission-time") ?? "",
+    certUrl: req.headers.get("paypal-cert-url") ?? "",
+    authAlgo: req.headers.get("paypal-auth-algo") ?? "",
+    transmissionSig: req.headers.get("paypal-transmission-sig") ?? "",
+    webhookId,
+    event,
+  });
+  if (!ok) {
+    return NextResponse.json(
+      { error: "Invalid webhook signature" },
+      { status: 401 },
+    );
   }
 
   const type: string = event.event_type ?? "";
